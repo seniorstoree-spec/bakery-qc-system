@@ -1,0 +1,11 @@
+create schema if not exists private;
+create or replace function private.is_developer() returns boolean language sql stable security definer set search_path=public,private as $$ select exists(select 1 from public.app_users u join public.roles r on r.id=u.role_id where u.auth_user_id=auth.uid() and u.is_active=true and r.name='Developer'); $$;
+revoke all on function private.is_developer() from public, anon, authenticated;
+drop policy if exists role_permissions_developer_write on public.role_permissions;
+drop policy if exists user_permissions_developer_write on public.user_permissions;
+drop policy if exists audit_logs_developer_read on public.audit_logs;
+drop policy if exists audit_logs_developer_write on public.audit_logs;
+create policy role_permissions_developer_write on public.role_permissions for all to authenticated using (private.is_developer()) with check (private.is_developer());
+create policy user_permissions_developer_write on public.user_permissions for all to authenticated using (private.is_developer()) with check (private.is_developer());
+create policy audit_logs_developer_read on public.audit_logs for select to authenticated using (private.is_developer());
+create policy audit_logs_developer_write on public.audit_logs for insert to authenticated with check (private.is_developer());
