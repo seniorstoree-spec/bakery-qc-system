@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { ShieldCheck, LogOut } from 'lucide-react';
-import { authConfigured, developerLogin, getSession, clearSession, userLogin } from '../lib/authClient';
+import { authConfigured, developerLogin, ensureAppUser, getSession, clearSession, userLogin } from '../lib/authClient';
 
 const DEVELOPER_EMAIL = 'esalm.kamel@elabdfoods.com';
 
@@ -38,6 +38,7 @@ export const AuthGate: React.FC<{ children: React.ReactNode }> = ({ children }) 
       const result = mode === 'developer'
         ? await developerLogin(email.trim(), secret)
         : await userLogin();
+      await ensureAppUser(result);
       setSession(result);
     } catch (e: any) {
       setError(e?.message || 'تعذر تسجيل الدخول.');
