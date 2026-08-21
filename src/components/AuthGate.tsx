@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { ShieldCheck, LogOut } from 'lucide-react';
 import { authConfigured, developerLogin, ensureAppUser, getSession, clearSession, userLogin } from '../lib/authClient';
+import { CloudStateGate } from './CloudStateGate';
 
 const DEVELOPER_EMAIL = 'esalm.kamel@elabdfoods.com';
 
@@ -27,7 +28,7 @@ export const AuthGate: React.FC<{ children: React.ReactNode }> = ({ children }) 
       <button type="button" onClick={() => { clearSession(); setSession(null); }} className="fixed bottom-3 left-3 z-[60] rounded-xl border bg-white px-3 py-2 text-xs font-bold shadow dark:bg-slate-900">
         <LogOut className="inline h-4 w-4 ml-1" />خروج
       </button>
-      {children}
+      <CloudStateGate>{children}</CloudStateGate>
     </div>;
   }
 
