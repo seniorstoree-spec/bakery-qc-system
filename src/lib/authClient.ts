@@ -40,7 +40,35 @@ export function developerLogin(email: string, secret: string) {
 }
 
 // Supabase anonymous sign-in creates a real authenticated anonymous user.
-// It must be enabled in Supabase Auth settings; no local authentication fallback is used.
 export function userLogin() {
   return request('/signup', {});
+}
+
+export async function ensureAppUser(session: any) {
+  if (!url || !key || !session?.access_token || !session?.user?.id) return;
+  const user = session.user;
+  const isAnonymous = Boolean(user.is_anonymous);
+  const body = {
+    auth_user_id: user.id,
+    name: isAnonymous ? 'مستخدم مجهول' : (user.user_metadata?.name || user.email || 'مستخدم'),
+    email: isAnonymous ? null : (user.email || null),
+    position: isAnonymous ? 'مستخدم' : 'مستخدم النظام',
+    is_active: true,
+  };
+
+  const response = await fetch(`${url}/rest/v1/app_users`, {
+    method: 'POST',
+    headers: {
+      apikey: key,
+      Authorization: `Bearer ${session.access_token}`,
+      'Content-Type': 'application/json',
+      Prefer: 'resolution=ignore-duplicates,return=minimal',
+    },
+    body: JSON.stringify(body),
+  });
+
+  if (!response.ok && response.status !== 409) {
+    const data = await response.json().catch(() => ({}));
+    throw new Error(data?.message || data?.details || 'تعذر إنشاء ملف المستخدم.');
+  }
 }
