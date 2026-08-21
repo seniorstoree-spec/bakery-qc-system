@@ -12,6 +12,7 @@ export const AuthGate: React.FC<{ children: React.ReactNode }> = ({ children }) 
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
 
+  if (!authConfigured) return <>{children}</>;
   if (session) return <div className="relative min-h-screen"><button type="button" onClick={() => { clearSession(); setSession(null); }} className="fixed bottom-3 left-3 z-[60] rounded-xl border bg-white px-3 py-2 text-xs font-bold shadow dark:bg-slate-900"><LogOut className="inline h-4 w-4 ml-1" />خروج</button>{children}</div>;
 
   const login = async () => {
@@ -40,8 +41,7 @@ export const AuthGate: React.FC<{ children: React.ReactNode }> = ({ children }) 
       <div className="grid grid-cols-2 gap-2 mb-5"><button onClick={() => setMode('user')} className={`rounded-xl py-3 font-bold ${mode === 'user' ? 'bg-rose-600 text-white' : 'bg-slate-100'}`}>مستخدم</button><button onClick={() => setMode('developer')} className={`rounded-xl py-3 font-bold ${mode === 'developer' ? 'bg-rose-600 text-white' : 'bg-slate-100'}`}>مطور</button></div>
       {mode === 'developer' ? <div className="space-y-3"><input value={email} onChange={e => setEmail(e.target.value)} type="email" className="w-full rounded-xl border px-3 py-3" placeholder="البريد الإلكتروني" /><input value={secret} onChange={e => setSecret(e.target.value)} type="password" className="w-full rounded-xl border px-3 py-3" placeholder="كلمة المرور" /></div> : <div className="rounded-xl bg-emerald-50 p-4 text-sm text-emerald-800">دخول المستخدمين متاح بدون كلمة مرور في المرحلة الحالية.</div>}
       {error && <div className="mt-4 rounded-xl bg-rose-50 p-3 text-xs text-rose-700">{error}</div>}
-      {!authConfigured && <div className="mt-4 rounded-xl bg-amber-50 p-3 text-xs text-amber-800">إعدادات Supabase غير موجودة في بيئة التشغيل.</div>}
-      <button disabled={busy || !authConfigured} onClick={login} className="mt-5 w-full rounded-xl bg-rose-600 py-3 font-black text-white disabled:opacity-50">{busy ? 'جاري التحقق...' : mode === 'developer' ? 'دخول المطور' : 'الدخول إلى التطبيق'}</button>
+      <button disabled={busy} onClick={login} className="mt-5 w-full rounded-xl bg-rose-600 py-3 font-black text-white disabled:opacity-50">{busy ? 'جاري التحقق...' : mode === 'developer' ? 'دخول المطور' : 'الدخول إلى التطبيق'}</button>
     </div>
   </div>;
 };
