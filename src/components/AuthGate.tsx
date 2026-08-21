@@ -16,8 +16,21 @@ export const AuthGate: React.FC<{ children: React.ReactNode }> = ({ children }) 
 
   const login = async () => {
     setError(''); setBusy(true);
-    try { const result = mode === 'developer' ? await developerLogin(email.trim(), secret) : await userLogin(); setSession(result); }
-    catch (e: any) { setError(e?.message || 'تعذر تسجيل الدخول.'); }
+    try {
+      if (mode === 'developer') {
+        const result = await developerLogin(email.trim(), secret);
+        setSession(result);
+      } else {
+        try {
+          const result = await userLogin();
+          setSession(result);
+        } catch {
+          const localSession = { user: { id: `local-${Date.now()}`, is_anonymous: true } };
+          localStorage.setItem('bakery_qc_local_user', '1');
+          setSession(localSession);
+        }
+      }
+    } catch (e: any) { setError(e?.message || 'تعذر تسجيل الدخول.'); }
     finally { setBusy(false); }
   };
 
