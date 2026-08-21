@@ -1,0 +1,10 @@
+revoke execute on function public.normalize_app_user_role() from anon, authenticated;
+create or replace function public.is_developer() returns boolean language sql stable security definer set search_path=public as $$ select exists(select 1 from public.app_users u join public.roles r on r.id=u.role_id where u.auth_user_id=auth.uid() and u.is_active=true and r.name='Developer'); $$;
+revoke execute on function public.is_developer() from anon;
+grant execute on function public.is_developer() to authenticated;
+create policy role_permissions_read on public.role_permissions for select to authenticated using (true);
+create policy role_permissions_developer_write on public.role_permissions for all to authenticated using (public.is_developer()) with check (public.is_developer());
+create policy user_permissions_self_read on public.user_permissions for select to authenticated using (exists(select 1 from public.app_users u where u.id=user_permissions.user_id and u.auth_user_id=auth.uid()) or public.is_developer());
+create policy user_permissions_developer_write on public.user_permissions for all to authenticated using (public.is_developer()) with check (public.is_developer());
+create policy audit_logs_developer_read on public.audit_logs for select to authenticated using (public.is_developer());
+create policy audit_logs_developer_write on public.audit_logs for insert to authenticated with check (public.is_developer());
