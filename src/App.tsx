@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { AppProvider } from './context/AppContext';
 import { AuthGate } from './components/AuthGate';
+import { DeveloperPanel } from './components/DeveloperPanel';
 import { Navbar } from './components/Navbar';
 import { Sidebar, NavTab } from './components/Sidebar';
 import { DashboardOverview } from './components/Dashboard/DashboardOverview';
@@ -30,6 +31,7 @@ const MainLayout: React.FC = () => {
         </div>
       </main>
     </div>
+    <DeveloperPanel />
   </div>;
 };
 
