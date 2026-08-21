@@ -36,5 +36,5 @@ const MainLayout: React.FC = () => {
 };
 
 export default function App() {
-  return <AppProvider><AuthGate><MainLayout /></AuthGate></AppProvider>;
+  return <AuthGate><AppProvider><MainLayout /></AppProvider></AuthGate>;
 }
