@@ -11,6 +11,10 @@ interface Props {
 
 type LoginUser = { id: string; name: string; position: string | null; role: string | null; active: boolean };
 
+const isDeveloperUser = (user: LoginUser) =>
+  user.role?.toLowerCase() === 'developer' ||
+  user.position?.toLowerCase() === 'system admin';
+
 export const SupabaseLoginScreen: React.FC<Props> = ({ config, onLogin }) => {
   const [mode, setMode] = useState<'user' | 'admin'>('user');
   const [email, setEmail] = useState('');
@@ -32,36 +36,48 @@ export const SupabaseLoginScreen: React.FC<Props> = ({ config, onLogin }) => {
           .order('name', { ascending: true });
         if (error) throw error;
 
-        const remoteUsers = (data ?? []) as LoginUser[];
-        const configUsers: LoginUser[] = config.users
-          .filter((user) => user.enabled)
-          .map((user) => ({
-            id: user.id,
-            name: user.name,
-            position: user.position,
-            role: user.role,
-            active: true,
-          }));
+        // Supabase is the single source of truth for passwordless users.
+        // The previous implementation merged this list with the local/admin
+        // configuration, which could contain the same person under a legacy
+        // local id and a Supabase UUID and therefore produced duplicates.
+        const remoteUsers = ((data ?? []) as LoginUser[])
+          .filter((user) => user.name.trim() && !isDeveloperUser(user));
 
-        // Merge the current admin configuration with Supabase records, preferring
-        // Supabase records when the same user ID exists. This keeps the login list
-        // aligned with the developer's saved user list while still supporting
-        // users created directly in the database.
-        const merged = [...configUsers, ...remoteUsers].filter((user, index, all) =>
-          all.findIndex((candidate) => candidate.id === user.id) === index,
-        );
+        // Defensive deduplication by normalized name and stable id.
+        const seenIds = new Set<string>();
+        const seenNames = new Set<string>();
+        const uniqueUsers = remoteUsers.filter((user) => {
+          const normalizedName = user.name.trim().replace(/\s+/g, ' ');
+          if (seenIds.has(user.id) || seenNames.has(normalizedName)) return false;
+          seenIds.add(user.id);
+          seenNames.add(normalizedName);
+          return true;
+        });
 
-        if (mounted) setUsers(merged);
+        if (mounted) setUsers(uniqueUsers);
       } catch (error) {
         console.error('Failed to load users:', error);
         if (mounted) {
-          setUsers(config.users.filter((u) => u.enabled).map((user) => ({
-            id: user.id,
-            name: user.name,
-            position: user.position,
-            role: user.role,
-            active: true,
-          })));
+          // Fallback only when Supabase cannot be read. Still dedupe and hide
+          // developer/system-admin accounts from the ordinary user selector.
+          const fallback = config.users
+            .filter((u) => u.enabled)
+            .map((user) => ({
+              id: user.supabaseId || user.id,
+              name: user.name,
+              position: user.position,
+              role: user.role,
+              active: true,
+            }))
+            .filter((user) => user.name.trim() && !isDeveloperUser(user));
+
+          const seen = new Set<string>();
+          setUsers(fallback.filter((user) => {
+            const key = user.name.trim().replace(/\s+/g, ' ');
+            if (seen.has(key)) return false;
+            seen.add(key);
+            return true;
+          }));
         }
       } finally {
         if (mounted) setLoadingUsers(false);
