@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useApp } from '../../context/AppContext';
 import { supabase } from '../../lib/supabase';
 
@@ -21,11 +21,18 @@ const normalize = (value: string) => {
 
 export const RemoteDataSync: React.FC = () => {
   const { exportDataJSON, importDataJSON } = useApp();
+  const exportRef = useRef(exportDataJSON);
+  const importRef = useRef(importDataJSON);
   const [hydrated, setHydrated] = useState(false);
   const applyingRemote = useRef(false);
   const lastRemote = useRef('');
+  const localRef = useRef('');
 
-  const localSerialized = useMemo(() => normalize(exportDataJSON()), [exportDataJSON]);
+  exportRef.current = exportDataJSON;
+  importRef.current = importDataJSON;
+
+  const localSerialized = normalize(exportDataJSON());
+  localRef.current = localSerialized;
 
   useEffect(() => {
     let cancelled = false;
@@ -49,7 +56,7 @@ export const RemoteDataSync: React.FC = () => {
         const remoteSerialized = normalize(JSON.stringify(data.state_data));
         lastRemote.current = remoteSerialized;
         applyingRemote.current = true;
-        importDataJSON(JSON.stringify(data.state_data));
+        importRef.current(JSON.stringify(data.state_data));
         window.setTimeout(() => {
           applyingRemote.current = false;
           if (!cancelled) setHydrated(true);
@@ -57,7 +64,7 @@ export const RemoteDataSync: React.FC = () => {
         return;
       }
 
-      const localData = JSON.parse(exportDataJSON()) as Record<string, unknown>;
+      const localData = JSON.parse(exportRef.current()) as Record<string, unknown>;
       delete localData.exportDate;
       const { error: insertError } = await supabase.from('app_state_store').upsert({
         state_key: STATE_KEY,
@@ -80,7 +87,7 @@ export const RemoteDataSync: React.FC = () => {
     return () => {
       cancelled = true;
     };
-  }, [exportDataJSON, importDataJSON]);
+  }, []);
 
   useEffect(() => {
     if (!hydrated || applyingRemote.current || localSerialized === lastRemote.current) return;
@@ -122,11 +129,11 @@ export const RemoteDataSync: React.FC = () => {
           if (!next?.state_data) return;
 
           const remoteSerialized = normalize(JSON.stringify(next.state_data));
-          if (remoteSerialized === localSerialized) return;
+          if (remoteSerialized === localRef.current) return;
 
           lastRemote.current = remoteSerialized;
           applyingRemote.current = true;
-          importDataJSON(JSON.stringify(next.state_data));
+          importRef.current(JSON.stringify(next.state_data));
           window.setTimeout(() => {
             applyingRemote.current = false;
           }, 0);
@@ -141,7 +148,7 @@ export const RemoteDataSync: React.FC = () => {
     return () => {
       void supabase.removeChannel(channel);
     };
-  }, [importDataJSON, localSerialized]);
+  }, []);
 
   useEffect(() => {
     const interval = window.setInterval(async () => {
@@ -154,18 +161,18 @@ export const RemoteDataSync: React.FC = () => {
       if (error || !data?.state_data) return;
 
       const remoteSerialized = normalize(JSON.stringify(data.state_data));
-      if (remoteSerialized === localSerialized) return;
+      if (remoteSerialized === localRef.current) return;
 
       lastRemote.current = remoteSerialized;
       applyingRemote.current = true;
-      importDataJSON(JSON.stringify(data.state_data));
+      importRef.current(JSON.stringify(data.state_data));
       window.setTimeout(() => {
         applyingRemote.current = false;
       }, 0);
     }, 10000);
 
     return () => window.clearInterval(interval);
-  }, [importDataJSON, localSerialized]);
+  }, []);
 
   return null;
 };
