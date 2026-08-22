@@ -7,18 +7,21 @@
     direction: rtl;
     font-family: var(--app-font, 'Cairo'), 'Tajawal', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     overflow-x: hidden;
+    width: 100%;
   }
 
   body {
     @apply bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100 antialiased;
     overflow-x: hidden;
     min-width: 0;
+    width: 100%;
   }
 
-  #root { min-height: 100vh; min-width: 0; overflow-x: hidden; }
+  #root { min-height: 100vh; min-width: 0; width: 100%; overflow-x: hidden; }
 
   *, *,::before, *::after { box-sizing: border-box; }
   input, select, textarea, button { font: inherit; }
+  img, svg, video, canvas { max-width: 100%; }
 }
 
 @layer utilities {
@@ -43,12 +46,58 @@
 
 @media (max-width: 1023px) {
   .custom-scrollbar::-webkit-scrollbar { width: 4px; height: 4px; }
+  aside { max-width: calc(100vw - 16px); }
 }
 
 @media (max-width: 767px) {
-  main { min-width: 0; max-width: 100vw; }
+  main { min-width: 0; max-width: 100vw; width: 100%; padding-left: 10px !important; padding-right: 10px !important; }
   button, [role='button'] { -webkit-tap-highlight-color: transparent; }
-  input, select, textarea { max-width: 100%; }
+  input, select, textarea { max-width: 100%; min-width: 0; }
+  table { display: block; width: 100%; max-width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  th, td { white-space: nowrap; }
+
+  /* Login / account selection screen */
+  #root > div:has(form) {
+    min-height: 100dvh;
+    height: auto;
+    padding: 12px !important;
+    align-items: flex-start !important;
+    justify-content: center !important;
+    overflow-y: auto;
+  }
+
+  #root > div:has(form) > div {
+    width: min(100%, 420px) !important;
+    max-width: 420px !important;
+    margin: auto;
+    padding: 18px !important;
+    border-radius: 22px !important;
+  }
+
+  #root > div:has(form) h1 { font-size: 1rem; line-height: 1.5; }
+  #root > div:has(form) select,
+  #root > div:has(form) input,
+  #root > div:has(form) form button { min-height: 46px; }
+  #root > div:has(form) select { font-size: 14px; padding-right: 10px; padding-left: 10px; }
+  #root > div:has(form) .grid.grid-cols-2 { gap: 6px; }
+
+  /* Developer/admin modal */
+  #root > div > div.fixed.z-\[80px\] { padding: 8px !important; }
+  #root > div > div.fixed.z-\[80px\] > div { border-radius: 20px !important; }
+  #root > div > div.fixed.z-\[80px\] .grid.grid-cols-2.sm\:grid-cols-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
+  /* Prevent long cards and controls from forcing the viewport wider */
+  [class*="min-w-"] { max-width: 100%; }
+}
+
+@media (max-width: 380px) {
+  #root > div:has(form) { padding: 8px !important; }
+  #root > div:has(form) > div { padding: 14px !important; border-radius: 18px !important; }
+  #root > div:has(form) h1 { font-size: 0.95rem; }
+}
+
+@media (min-width: 768px) and (max-width: 1199px) {
+  main { padding-left: 18px !important; padding-right: 18px !important; }
 }
 
 @media print {
