@@ -28,7 +28,7 @@ export const HeaderBanner: React.FC<HeaderBannerProps> = ({
               تقرير مراقبة الجودة اليومى لقسم المخبوزات
             </h1>
             <div className="flex items-center gap-2 text-xs md:text-sm font-semibold text-rose-600 dark:text-rose-400">
-              <span>إدارة الجودة وتأكيد الجودة</span>
+              <span>إدارة الجودة</span>
               <span>•</span>
               <span className="bg-rose-50 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300 px-2 py-0.5 rounded-full text-xs font-bold border border-rose-200 dark:border-rose-900">
                 قسم: المخبوزات {activeSection === 1 ? '1 (كرواسون، باتيه، دانش، ميلفيه)' : '2 (دونتس، سينامون، ساندويتش)'}
