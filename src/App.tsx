@@ -37,7 +37,8 @@ const AppShell:React.FC=()=>{
   const loadSelectedUser = async (userId?: string) => {
     if (!userId) return;
 
-    const configUser = config.users.find((u) => u.id === userId);
+    const currentConfig = config;
+    const configUser = currentConfig.users.find((u) => u.id === userId || u.supabaseId === userId);
     if (configUser) {
       setCurrentUserProfile({ ...configUser });
       return;
@@ -53,9 +54,7 @@ const AppShell:React.FC=()=>{
 
     const roleMap: Record<string, UserProfile['role']> = {
       quality_engineer: 'quality_engineer',
-      production_supervisor: 'production_supervisor',
       quality_supervisor: 'production_supervisor',
-      quality_manager: 'quality_manager',
       department_head: 'quality_manager',
       senior_quality: 'quality_engineer',
       Developer: 'system_admin',
@@ -65,7 +64,7 @@ const AppShell:React.FC=()=>{
     setCurrentUserProfile({
       id: data.id,
       name: data.name,
-      role: roleMap[data.role || ''] || roleMap[data.position || ''] || 'quality_engineer',
+      role: roleMap[data.position || ''] || roleMap[data.role || ''] || 'quality_engineer',
       department: 'إدارة الجودة - قسم المخبوزات',
       title: data.position || 'مستخدم جودة',
       permissions: data.permissions || {},
@@ -76,23 +75,30 @@ const AppShell:React.FC=()=>{
     let active=true;
     const load=async()=>{
       const remote=await syncAdminConfigFromSupabase();
-      if(active&&remote)setConfig(remote);
+      if(!active)return;
+      if(remote){
+        setConfig(remote);
+        const currentSession = getSession();
+        if(currentSession?.mode==='user'){
+          const selected = remote.users.find((u)=>u.id===currentSession.userId || u.supabaseId===currentSession.userId);
+          if(selected){
+            setCurrentUserProfile({...selected});
+          } else {
+            clearSession();
+            setSessionState(null);
+          }
+        }
+      }
     };
     void load();
     return()=>{active=false};
   },[]);
 
-  // Restore the selected employee on page refresh when the session is still valid.
-  useEffect(()=>{
-    if(session?.mode !== 'user' || !session.userId) return;
-    void loadSelectedUser(session.userId);
-  },[session?.mode, session?.userId, config.users]);
-
   const login=async(mode:LoginMode,userId?:string)=>{
     const next={mode,userId};
+    if(mode==='user') await loadSelectedUser(userId);
     setSession(next);
     setSessionState(next);
-    if(mode==='user') await loadSelectedUser(userId);
   };
 
   const logout=()=>{clearSession();setSessionState(null)};
