@@ -50,6 +50,59 @@ function normalizeAdminConfig(data: Partial<AdminConfig> | null | undefined): Ad
   };
 }
 
+function isUuid(value: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+}
+
+function roleFromManagedUser(user: ManagedUser): string {
+  if (user.position === 'department_head') return 'quality_manager';
+  if (user.position === 'quality_supervisor') return 'production_supervisor';
+  if (user.position === 'senior_quality') return 'senior_quality';
+  return 'quality_engineer';
+}
+
+async function syncUsersToSupabase(users: ManagedUser[]): Promise<void> {
+  const { data: existingUsers, error: readError } = await supabase
+    .from('users')
+    .select('id,name,username');
+
+  if (readError) throw new Error(`تعذر قراءة المستخدمين من قاعدة البيانات: ${readError.message}`);
+
+  const existingByName = new Map<string, { id: string; username: string }>();
+  for (const user of existingUsers ?? []) {
+    existingByName.set(String(user.name).trim(), {
+      id: String(user.id),
+      username: String(user.username),
+    });
+  }
+
+  const rows = users.map((user) => {
+    const existing = existingByName.get(user.name.trim());
+    const row: Record<string, unknown> = {
+      name: user.name.trim(),
+      username: existing?.username ?? `user_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+      position: user.title?.trim() || 'مستخدم جودة',
+      role: roleFromManagedUser(user),
+      permissions: user.permissions ?? {},
+      active: Boolean(user.enabled),
+      updated_at: new Date().toISOString(),
+    };
+
+    if (existing?.id && isUuid(existing.id)) row.id = existing.id;
+    else if (isUuid(user.id)) row.id = user.id;
+
+    return row;
+  });
+
+  if (!rows.length) return;
+
+  const { error: upsertError } = await supabase
+    .from('users')
+    .upsert(rows, { onConflict: 'id' });
+
+  if (upsertError) throw new Error(`تعذر حفظ المستخدمين في قاعدة البيانات: ${upsertError.message}`);
+}
+
 export function loadAdminConfig(): AdminConfig {
   try {
     const raw = localStorage.getItem(ADMIN_CONFIG_LOCAL_KEY);
@@ -69,7 +122,6 @@ export async function saveAdminConfig(config: AdminConfig): Promise<AdminConfig>
   const normalized = normalizeAdminConfig(config);
   const serialized = JSON.stringify(normalized);
 
-  // Always keep a local copy as an offline fallback.
   localStorage.setItem(ADMIN_CONFIG_LOCAL_KEY, serialized);
 
   const { error } = await supabase
@@ -88,8 +140,8 @@ export async function saveAdminConfig(config: AdminConfig): Promise<AdminConfig>
     throw new Error(`تعذر حفظ إعدادات المستخدمين في قاعدة البيانات: ${error.message}`);
   }
 
-  // Read back the saved row to guarantee that the central store contains the
-  // same version that the user just saved.
+  await syncUsersToSupabase(normalized.users);
+
   const { data, error: verifyError } = await supabase
     .from('app_state_store')
     .select('state_data')
