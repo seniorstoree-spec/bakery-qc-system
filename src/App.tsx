@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { AppProvider, useApp } from './context/AppContext';
+import { AppProvider } from './context/AppContext';
 import { Navbar } from './components/Navbar';
 import { Sidebar, NavTab } from './components/Sidebar';
 import { DashboardOverview } from './components/Dashboard/DashboardOverview';
@@ -11,17 +11,17 @@ import { SensoryFoodSafetyModule } from './components/SensoryFoodSafety/SensoryF
 import { ProductReleaseModule } from './components/ProductRelease/ProductReleaseModule';
 import { AdminPanel, LoginScreen, clearSession, getSession, setSession } from './admin/adminUi';
 import { applyAdminAppearance } from './admin/admin.css';
-import { LoginMode } from './admin/adminTypes';
+import { loadAdminConfig } from './admin/adminConfig';
+import { AdminConfig, LoginMode } from './admin/adminTypes';
 
-const MainLayout: React.FC<{ onLogout: () => void }> = ({ onLogout }) => {
-  const { adminConfig, currentUser, setCurrentUser, activeSection, setActiveSection } = useApp();
+const MainLayout: React.FC<{ config: AdminConfig; onLogout: () => void }> = ({ config, onLogout }) => {
   const [activeTab, setActiveTab] = useState<NavTab>('dashboard');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [showAdmin, setShowAdmin] = useState(false);
 
   useEffect(() => {
-    applyAdminAppearance(adminConfig.appearance);
-  }, [adminConfig.appearance]);
+    applyAdminAppearance(config.appearance);
+  }, [config.appearance]);
 
   const isAdmin = getSession()?.mode === 'admin';
 
@@ -42,37 +42,28 @@ const MainLayout: React.FC<{ onLogout: () => void }> = ({ onLogout }) => {
           </div>
         </main>
       </div>
-      {showAdmin && isAdmin && <AdminPanel config={adminConfig} onChange={(next) => { window.location.reload(); }} onLogout={onLogout} />}
+      {showAdmin && isAdmin && <AdminPanel config={config} onChange={() => window.location.reload()} onLogout={onLogout} />}
     </div>
   );
 };
 
-const AuthenticatedApp: React.FC<{ session: { mode: LoginMode; userId?: string }; onLogout: () => void }> = ({ session, onLogout }) => {
-  const { adminConfig, setCurrentUser } = useApp();
-  useEffect(() => {
-    if (session.userId) {
-      const user = adminConfig.users.find((u) => u.id === session.userId && u.enabled);
-      if (user) setCurrentUser(user);
-    }
-  }, [session.userId, adminConfig.users, setCurrentUser]);
-  return <MainLayout onLogout={onLogout} />;
-};
-
 const AppShell: React.FC = () => {
+  const [config] = useState<AdminConfig>(() => loadAdminConfig());
   const [session, setSessionState] = useState<{ mode: LoginMode; userId?: string } | null>(() => getSession());
+
   const login = (mode: LoginMode, userId?: string) => {
     const next = { mode, userId };
     setSession(next);
     setSessionState(next);
   };
+
   const logout = () => {
     clearSession();
     setSessionState(null);
   };
 
-  const config = useApp().adminConfig;
   if (!session) return <LoginScreen config={config} onLogin={login} />;
-  return <AuthenticatedApp session={session} onLogout={logout} />;
+  return <MainLayout config={config} onLogout={logout} />;
 };
 
 export default function App() {
