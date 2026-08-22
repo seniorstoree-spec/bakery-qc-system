@@ -50,8 +50,8 @@ function normalizeAdminConfig(data: Partial<AdminConfig> | null | undefined): Ad
   };
 }
 
-function isUuid(value: string): boolean {
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+function isUuid(value: unknown): value is string {
+  return typeof value === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
 }
 
 function roleFromManagedUser(user: ManagedUser): string {
@@ -61,54 +61,77 @@ function roleFromManagedUser(user: ManagedUser): string {
   return 'quality_engineer';
 }
 
-async function syncUsersToSupabase(users: ManagedUser[]): Promise<void> {
-  const { data: existingUsers, error: readError } = await supabase
+function createStableUuid(): string {
+  try {
+    return crypto.randomUUID();
+  } catch {
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+      const r = Math.random() * 16 | 0;
+      const v = c === 'x' ? r : (r & 0x3 | 0x8);
+      return v.toString(16);
+    });
+  }
+}
+
+async function readSupabaseUsers(): Promise<Array<{ id: string; name: string; username: string; position: string; role: string; active: boolean }>> {
+  const { data, error } = await supabase
     .from('users')
-    .select('id,name,username,position,role,permissions,active');
+    .select('id,name,username,position,role,active');
 
-  if (readError) throw new Error(`تعذر قراءة المستخدمين من قاعدة البيانات: ${readError.message}`);
-
-  const existing = (existingUsers ?? []).map((user) => ({
-    id: String(user.id),
-    name: String(user.name ?? '').trim(),
-    username: String(user.username ?? ''),
+  if (error) throw new Error(`تعذر قراءة المستخدمين من قاعدة البيانات: ${error.message}`);
+  return (data ?? []).map((row) => ({
+    id: String(row.id),
+    name: String(row.name ?? ''),
+    username: String(row.username ?? ''),
+    position: String(row.position ?? ''),
+    role: String(row.role ?? ''),
+    active: Boolean(row.active),
   }));
+}
 
-  const byId = new Map(existing.map((user) => [user.id, user]));
-  const byUsername = new Map(existing.map((user) => [user.username, user]));
-  const byName = new Map(existing.filter((user) => user.name).map((user) => [user.name, user]));
+function enrichWithStableSupabaseIds(users: ManagedUser[], remoteUsers: Array<{ id: string; name: string }>): ManagedUser[] {
+  const byName = new Map(remoteUsers.map((u) => [u.name.trim(), u.id]));
+  return users.map((user) => {
+    if (isUuid(user.supabaseId)) return user;
+    if (isUuid(user.id)) return { ...user, supabaseId: user.id };
+    const matchedId = byName.get(user.name.trim());
+    return matchedId ? { ...user, supabaseId: matchedId } : user;
+  });
+}
 
-  const usedDbIds = new Set<string>();
+async function syncUsersToSupabase(users: ManagedUser[]): Promise<ManagedUser[]> {
+  const existingUsers = await readSupabaseUsers();
+  const byId = new Map(existingUsers.map((u) => [u.id, u]));
+  const byName = new Map(existingUsers.map((u) => [u.name.trim(), u]));
 
-  const rows = users.map((user) => {
-    const stableUsername = `managed_${user.id}`;
-    const matched =
-      (isUuid(user.id) ? byId.get(user.id) : undefined) ??
-      byUsername.get(stableUsername) ??
-      byName.get(user.name.trim());
+  const syncedUsers: ManagedUser[] = [];
 
-    const dbId = matched?.id ?? (isUuid(user.id) ? user.id : undefined);
-    if (dbId) usedDbIds.add(dbId);
+  for (const user of users) {
+    const existing = isUuid(user.supabaseId)
+      ? byId.get(user.supabaseId)
+      : (isUuid(user.id) ? byId.get(user.id) : byName.get(user.name.trim()));
 
-    return {
-      ...(dbId ? { id: dbId } : {}),
+    const stableId = existing?.id ?? createStableUuid();
+    const username = existing?.username ?? `user_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+
+    const row = {
+      id: stableId,
       name: user.name.trim(),
-      username: matched?.username || stableUsername,
+      username,
       position: user.title?.trim() || 'مستخدم جودة',
       role: roleFromManagedUser(user),
       permissions: user.permissions ?? {},
       active: Boolean(user.enabled),
       updated_at: new Date().toISOString(),
     };
-  });
 
-  if (!rows.length) return;
+    const { error } = await supabase.from('users').upsert(row, { onConflict: 'id' });
+    if (error) throw new Error(`تعذر حفظ المستخدم "${user.name}" في قاعدة البيانات: ${error.message}`);
 
-  const { error: upsertError } = await supabase
-    .from('users')
-    .upsert(rows, { onConflict: 'id' });
+    syncedUsers.push({ ...user, supabaseId: stableId });
+  }
 
-  if (upsertError) throw new Error(`تعذر حفظ تعديلات المستخدمين في قاعدة البيانات: ${upsertError.message}`);
+  return syncedUsers;
 }
 
 export function loadAdminConfig(): AdminConfig {
@@ -121,15 +144,11 @@ export function loadAdminConfig(): AdminConfig {
   }
 }
 
-/**
- * Persist developer configuration locally and centrally.
- * Every save also upserts the current managed users into public.users so edits
- * to names, titles, roles, permissions, and active state are reflected in Supabase.
- */
 export async function saveAdminConfig(config: AdminConfig): Promise<AdminConfig> {
   const normalized = normalizeAdminConfig(config);
-  const serialized = JSON.stringify(normalized);
-
+  const syncedUsers = await syncUsersToSupabase(normalized.users);
+  const finalConfig: AdminConfig = { ...normalized, users: syncedUsers };
+  const serialized = JSON.stringify(finalConfig);
   localStorage.setItem(ADMIN_CONFIG_LOCAL_KEY, serialized);
 
   const { error } = await supabase
@@ -137,7 +156,7 @@ export async function saveAdminConfig(config: AdminConfig): Promise<AdminConfig>
     .upsert(
       {
         state_key: ADMIN_CONFIG_STATE_KEY,
-        state_data: normalized,
+        state_data: finalConfig,
         updated_by: 'developer',
         updated_at: new Date().toISOString(),
       },
@@ -147,8 +166,6 @@ export async function saveAdminConfig(config: AdminConfig): Promise<AdminConfig>
   if (error) {
     throw new Error(`تعذر حفظ إعدادات المستخدمين في قاعدة البيانات: ${error.message}`);
   }
-
-  await syncUsersToSupabase(normalized.users);
 
   const { data, error: verifyError } = await supabase
     .from('app_state_store')
@@ -160,7 +177,7 @@ export async function saveAdminConfig(config: AdminConfig): Promise<AdminConfig>
     throw new Error(`تم الحفظ لكن تعذر التحقق من البيانات: ${verifyError.message}`);
   }
 
-  const verified = normalizeAdminConfig(data?.state_data);
+  const verified = normalizeAdminConfig(data?.state_data ?? finalConfig);
   localStorage.setItem(ADMIN_CONFIG_LOCAL_KEY, JSON.stringify(verified));
   return verified;
 }
@@ -181,8 +198,11 @@ export async function syncAdminConfigFromSupabase(): Promise<AdminConfig | null>
     if (!data?.state_data) return null;
 
     const merged = normalizeAdminConfig(data.state_data);
-    localStorage.setItem(ADMIN_CONFIG_LOCAL_KEY, JSON.stringify(merged));
-    return merged;
+    const remoteUsers = await readSupabaseUsers();
+    const enriched = enrichWithStableSupabaseIds(merged.users, remoteUsers);
+    const finalConfig: AdminConfig = { ...merged, users: enriched };
+    localStorage.setItem(ADMIN_CONFIG_LOCAL_KEY, JSON.stringify(finalConfig));
+    return finalConfig;
   } catch {
     return null;
   }
