@@ -6,7 +6,9 @@ export type ManagedUserRole =
   | 'quality_engineer'
   | 'quality_supervisor'
   | 'department_head'
-  | 'senior_quality';
+  | 'senior_quality'
+  | 'quality_department_manager'
+  | 'deputy_quality_manager';
 
 export interface ManagedUser extends UserProfile {
   position: ManagedUserRole;
