@@ -17,6 +17,7 @@ import { AdminConfig, LoginMode } from './admin/adminTypes';
 import { RemoteDataSync } from './components/common/RemoteDataSync';
 import { supabase } from './lib/supabase';
 import { UserProfile } from './types';
+import { withRolePermissions } from './admin/rbac';
 
 const MainLayout: React.FC<{ config: AdminConfig; onConfigChange:(next:AdminConfig)=>void; onLogout:()=>void }> = ({ config, onConfigChange, onLogout }) => {
   const [activeTab,setActiveTab]=useState<NavTab>('dashboard'); const [isSidebarOpen,setIsSidebarOpen]=useState(false); const [showAdmin,setShowAdmin]=useState(false);
@@ -37,10 +38,9 @@ const AppShell:React.FC=()=>{
   const loadSelectedUser = async (userId?: string) => {
     if (!userId) return;
 
-    const currentConfig = config;
-    const configUser = currentConfig.users.find((u) => u.id === userId || u.supabaseId === userId);
+    const configUser = config.users.find((u) => u.id === userId || u.supabaseId === userId);
     if (configUser) {
-      setCurrentUserProfile({ ...configUser });
+      setCurrentUserProfile(withRolePermissions({ ...configUser }));
       return;
     }
 
@@ -61,14 +61,16 @@ const AppShell:React.FC=()=>{
       developer: 'system_admin',
     };
 
-    setCurrentUserProfile({
+    const role = roleMap[data.position || ''] || roleMap[data.role || ''] || 'quality_engineer';
+
+    setCurrentUserProfile(withRolePermissions({
       id: data.id,
       name: data.name,
-      role: roleMap[data.position || ''] || roleMap[data.role || ''] || 'quality_engineer',
+      role,
       department: 'إدارة الجودة - قسم المخبوزات',
       title: data.position || 'مستخدم جودة',
       permissions: data.permissions || {},
-    });
+    }, role));
   };
 
   useEffect(()=>{
@@ -82,11 +84,20 @@ const AppShell:React.FC=()=>{
         if(currentSession?.mode==='user'){
           const selected = remote.users.find((u)=>u.id===currentSession.userId || u.supabaseId===currentSession.userId);
           if(selected){
-            setCurrentUserProfile({...selected});
+            setCurrentUserProfile(withRolePermissions({...selected}));
           } else {
             clearSession();
             setSessionState(null);
           }
+        } else if(currentSession?.mode==='admin') {
+          setCurrentUserProfile(withRolePermissions({
+            id: currentSession.userId || 'developer',
+            name: 'Eslam Kamel',
+            role: 'system_admin',
+            department: 'نظم المعلومات',
+            title: 'System Admin',
+            permissions: { canEnterData: true, canApproveRelease: true, canEditCriticalLimits: true, canManageUsers: true, canExportReports: true, canSignOff: true },
+          }, 'system_admin'));
         }
       }
     };
@@ -96,7 +107,18 @@ const AppShell:React.FC=()=>{
 
   const login=async(mode:LoginMode,userId?:string)=>{
     const next={mode,userId};
-    if(mode==='user') await loadSelectedUser(userId);
+    if(mode==='user') {
+      await loadSelectedUser(userId);
+    } else {
+      setCurrentUserProfile(withRolePermissions({
+        id: userId || 'developer',
+        name: 'Eslam Kamel',
+        role: 'system_admin',
+        department: 'نظم المعلومات',
+        title: 'System Admin',
+        permissions: { canEnterData: true, canApproveRelease: true, canEditCriticalLimits: true, canManageUsers: true, canExportReports: true, canSignOff: true },
+      }, 'system_admin'));
+    }
     setSession(next);
     setSessionState(next);
   };
