@@ -67,52 +67,6 @@ header.sticky.top-0 h1::after {
   white-space: nowrap;
 }
 
-#root > div:has(form) {
-  width: 100%;
-  min-width: 0;
-  min-height: 100vh;
-  min-height: 100dvh;
-  overflow-x: hidden;
-  overflow-y: auto;
-  padding: clamp(12px, 3vw, 32px) !important;
-}
-
-#root > div:has(form) > div {
-  width: 100%;
-  max-width: 520px;
-  min-width: 0;
-  margin: auto;
-}
-
-#root > div:has(form) > div > div,
-#root > div:has(form) form,
-#root > div:has(form) label,
-#root > div:has(form) select,
-#root > div:has(form) input,
-#root > div:has(form) button {
-  min-width: 0;
-  max-width: 100%;
-}
-
-#root > div:has(form) select,
-#root > div:has(form) input {
-  width: 100%;
-}
-
-#root > div:has(form) h1 {
-  white-space: normal !important;
-  overflow: visible !important;
-  text-overflow: clip !important;
-  overflow-wrap: anywhere;
-  word-break: normal;
-}
-
-#root > div:has(form) select {
-  text-overflow: clip;
-  white-space: normal;
-  overflow: visible;
-}
-
 @media (max-width: 1023px) {
   .custom-scrollbar::-webkit-scrollbar { width: 4px; height: 4px; }
   aside { max-width: calc(100vw - 16px); }
@@ -125,31 +79,6 @@ header.sticky.top-0 h1::after {
   table { display: block; width: 100%; max-width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
   th, td { white-space: nowrap; }
 
-  header.sticky.top-0 h1::after { font-size: clamp(0.72rem, 3.2vw, 0.95rem); }
-
-  #root > div:has(form) {
-    min-height: 100dvh;
-    height: auto;
-    padding: 10px !important;
-    align-items: flex-start !important;
-    justify-content: center !important;
-  }
-
-  #root > div:has(form) > div {
-    width: min(100%, 520px) !important;
-    max-width: 520px !important;
-    margin: auto;
-    padding: 18px !important;
-    border-radius: 22px !important;
-  }
-
-  #root > div:has(form) h1 { font-size: 1rem; line-height: 1.5; }
-  #root > div:has(form) select,
-  #root > div:has(form) input,
-  #root > div:has(form) form button { min-height: 46px; }
-  #root > div:has(form) select { font-size: 14px; padding-right: 10px; padding-left: 10px; }
-  #root > div:has(form) .grid.grid-cols-2 { gap: 6px; }
-
   #root > div > div.fixed.z-\[80px\] { padding: 8px !important; }
   #root > div > div.fixed.z-\[80px\] > div { border-radius: 20px !important; }
   #root > div > div.fixed.z-\[80px\] .grid.grid-cols-2.sm\:grid-cols-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -158,9 +87,7 @@ header.sticky.top-0 h1::after {
 }
 
 @media (max-width: 380px) {
-  #root > div:has(form) { padding: 8px !important; }
-  #root > div:has(form) > div { padding: 14px !important; border-radius: 18px !important; }
-  #root > div:has(form) h1 { font-size: 0.95rem; }
+  #root { width: 100%; }
 }
 
 @media (min-width: 768px) and (max-width: 1199px) {
