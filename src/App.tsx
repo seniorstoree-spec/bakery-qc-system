@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { AppProvider } from './context/AppContext';
+import { AppProvider, useApp } from './context/AppContext';
 import { Navbar } from './components/Navbar';
 import { Sidebar, NavTab } from './components/Sidebar';
 import { DashboardOverview } from './components/Dashboard/DashboardOverview';
@@ -15,8 +15,9 @@ import { applyAdminAppearance } from './admin/admin.css';
 import { loadAdminConfig, syncAdminConfigFromSupabase } from './admin/adminConfig';
 import { AdminConfig, LoginMode } from './admin/adminTypes';
 import { RemoteDataSync } from './components/common/RemoteDataSync';
+import { supabase } from './lib/supabase';
+import { UserProfile } from './types';
 
-// Production login is Supabase-backed; keep the existing UI shell unchanged.
 const MainLayout: React.FC<{ config: AdminConfig; onConfigChange:(next:AdminConfig)=>void; onLogout:()=>void }> = ({ config, onConfigChange, onLogout }) => {
   const [activeTab,setActiveTab]=useState<NavTab>('dashboard'); const [isSidebarOpen,setIsSidebarOpen]=useState(false); const [showAdmin,setShowAdmin]=useState(false);
   useEffect(()=>{applyAdminAppearance(config.appearance)},[config.appearance]);
@@ -31,8 +32,56 @@ const MainLayout: React.FC<{ config: AdminConfig; onConfigChange:(next:AdminConf
 const AppShell:React.FC=()=>{
   const [config,setConfig]=useState<AdminConfig>(()=>loadAdminConfig());
   const [session,setSessionState]=useState<{mode:LoginMode;userId?:string}|null>(()=>getSession());
+  const { setCurrentUserProfile } = useApp();
+
   useEffect(()=>{let active=true; const load=async()=>{const remote=await syncAdminConfigFromSupabase(); if(active&&remote)setConfig(remote)}; void load(); return()=>{active=false}},[]);
-  const login=(mode:LoginMode,userId?:string)=>{const next={mode,userId};setSession(next);setSessionState(next)};
+
+  const loadSelectedUser = async (userId?: string) => {
+    if (!userId) return;
+
+    const configUser = config.users.find((u) => u.id === userId);
+    if (configUser) {
+      setCurrentUserProfile({
+        ...configUser,
+        id: configUser.id,
+      });
+      return;
+    }
+
+    const { data, error } = await supabase
+      .from('users')
+      .select('id,name,position,role,permissions,active')
+      .eq('id', userId)
+      .maybeSingle();
+
+    if (error || !data || !data.active) return;
+
+    const roleMap: Record<string, UserProfile['role']> = {
+      quality_engineer: 'quality_engineer',
+      quality_supervisor: 'production_supervisor',
+      department_head: 'quality_manager',
+      senior_quality: 'quality_engineer',
+      Developer: 'system_admin',
+      developer: 'system_admin',
+    };
+
+    setCurrentUserProfile({
+      id: data.id,
+      name: data.name,
+      role: roleMap[data.position || ''] || roleMap[data.role || ''] || 'quality_engineer',
+      department: 'إدارة الجودة - قسم المخبوزات',
+      title: data.position || 'مستخدم جودة',
+      permissions: data.permissions || {},
+    });
+  };
+
+  const login=async(mode:LoginMode,userId?:string)=>{
+    const next={mode,userId};
+    setSession(next);
+    setSessionState(next);
+    if(mode==='user') await loadSelectedUser(userId);
+  };
+
   const logout=()=>{clearSession();setSessionState(null)};
   if(!session)return <SupabaseLoginScreen config={config} onLogin={login}/>;
   return <MainLayout config={config} onConfigChange={setConfig} onLogout={logout}/>;
