@@ -57,7 +57,7 @@
 
 #root > div:has(form) > div {
   width: 100%;
-  max-width: 448px;
+  max-width: 520px;
   min-width: 0;
   margin: auto;
 }
@@ -77,8 +77,19 @@
   width: 100%;
 }
 
+/* Keep all account-screen text/data visible; do not clip or ellipsize it. */
+#root > div:has(form) h1 {
+  white-space: normal !important;
+  overflow: visible !important;
+  text-overflow: clip !important;
+  overflow-wrap: anywhere;
+  word-break: normal;
+}
+
 #root > div:has(form) select {
-  text-overflow: ellipsis;
+  text-overflow: clip;
+  white-space: normal;
+  overflow: visible;
 }
 
 @media (max-width: 1023px) {
@@ -102,8 +113,8 @@
   }
 
   #root > div:has(form) > div {
-    width: min(100%, 420px) !important;
-    max-width: 420px !important;
+    width: min(100%, 520px) !important;
+    max-width: 520px !important;
     margin: auto;
     padding: 18px !important;
     border-radius: 22px !important;
