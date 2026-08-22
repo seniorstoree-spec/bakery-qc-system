@@ -16,6 +16,7 @@ import { loadAdminConfig, syncAdminConfigFromSupabase } from './admin/adminConfi
 import { AdminConfig, LoginMode } from './admin/adminTypes';
 import { RemoteDataSync } from './components/common/RemoteDataSync';
 
+// Production login is Supabase-backed; keep the existing UI shell unchanged.
 const MainLayout: React.FC<{ config: AdminConfig; onConfigChange:(next:AdminConfig)=>void; onLogout:()=>void }> = ({ config, onConfigChange, onLogout }) => {
   const [activeTab,setActiveTab]=useState<NavTab>('dashboard'); const [isSidebarOpen,setIsSidebarOpen]=useState(false); const [showAdmin,setShowAdmin]=useState(false);
   useEffect(()=>{applyAdminAppearance(config.appearance)},[config.appearance]);
