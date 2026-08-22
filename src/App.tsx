@@ -13,6 +13,7 @@ import { AdminPanel, LoginScreen, clearSession, getSession, setSession } from '.
 import { applyAdminAppearance } from './admin/admin.css';
 import { loadAdminConfig } from './admin/adminConfig';
 import { AdminConfig, LoginMode } from './admin/adminTypes';
+import { RemoteDataSync } from './components/common/RemoteDataSync';
 
 const MainLayout: React.FC<{ config: AdminConfig; onLogout: () => void }> = ({ config, onLogout }) => {
   const [activeTab, setActiveTab] = useState<NavTab>('dashboard');
@@ -69,6 +70,7 @@ const AppShell: React.FC = () => {
 export default function App() {
   return (
     <AppProvider>
+      <RemoteDataSync />
       <AppShell />
     </AppProvider>
   );
