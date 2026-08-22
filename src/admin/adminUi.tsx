@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Settings, UserPlus, Trash2, Save, Palette, Type, Image as ImageIcon, LockKeyhole, LogOut, ShieldCheck } from 'lucide-react';
+import { Settings, UserPlus, Trash2, Save, Type, Image as ImageIcon, LockKeyhole, LogOut, ShieldCheck } from 'lucide-react';
 import { AdminConfig, ADMIN_PASSWORD, LoginMode, ManagedUser, ManagedUserRole, SESSION_STORAGE_KEY } from './adminTypes';
 import { saveAdminConfig } from './adminConfig';
 
@@ -96,13 +96,23 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ config, onChange, onLogo
   const [newUserName, setNewUserName] = useState('');
   const [newUserTitle, setNewUserTitle] = useState('');
   const [activeTab, setActiveTab] = useState<'users' | 'sections' | 'appearance' | 'content'>('users');
+  const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => setDraft(config), [config]);
 
-  const persist = () => {
-    saveAdminConfig(draft);
-    onChange(draft);
-    window.alert('تم حفظ الإعدادات.');
+  const persist = async () => {
+    if (isSaving) return;
+    setIsSaving(true);
+    try {
+      const saved = await saveAdminConfig(draft);
+      onChange(saved);
+      window.alert('تم حفظ إعدادات المستخدمين والتأكد من تخزينها بنجاح.');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'حدث خطأ غير معروف أثناء الحفظ.';
+      window.alert(message);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const addUser = () => {
@@ -167,7 +177,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ config, onChange, onLogo
               <div className="grid grid-cols-1 md:grid-cols-[1fr_1fr_auto] gap-2">
                 <input value={newUserName} onChange={(e) => setNewUserName(e.target.value)} placeholder="اسم المستخدم" className="h-10 rounded-xl border border-slate-200 dark:border-slate-700 px-3 bg-white dark:bg-slate-950" />
                 <input value={newUserTitle} onChange={(e) => setNewUserTitle(e.target.value)} placeholder="المسمى الوظيفي" className="h-10 rounded-xl border border-slate-200 dark:border-slate-700 px-3 bg-white dark:bg-slate-950" />
-                <button onClick={addUser} className="h-10 px-4 rounded-xl bg-indigo-600 text-white font-bold flex items-center justify-center gap-2"><UserPlus className="w-4 h-4" /> إضافة</button>
+                <button type="button" onClick={addUser} className="h-10 px-4 rounded-xl bg-indigo-600 text-white font-bold flex items-center justify-center gap-2"><UserPlus className="w-4 h-4" /> إضافة</button>
               </div>
 
               <div className="space-y-3">
@@ -182,7 +192,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ config, onChange, onLogo
                       <label className="flex items-center gap-2 text-xs font-bold"><input type="checkbox" checked={user.enabled} onChange={(e) => updateUser(user.id, { enabled: e.target.checked })} /> فعال</label>
                       <label className="flex items-center gap-2 text-xs"><input type="checkbox" checked={user.permissions.canEnterData} onChange={(e) => updateUser(user.id, { permissions: { ...user.permissions, canEnterData: e.target.checked } })} /> إدخال بيانات</label>
                       <div className="flex items-center justify-end gap-2">
-                        <button onClick={() => removeUser(user.id)} className="p-2 rounded-lg bg-red-50 text-red-600" title="حذف"><Trash2 className="w-4 h-4" /></button>
+                        <button type="button" onClick={() => removeUser(user.id)} className="p-2 rounded-lg bg-red-50 text-red-600" title="حذف"><Trash2 className="w-4 h-4" /></button>
                       </div>
                     </div>
                   </div>
@@ -221,7 +231,11 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ config, onChange, onLogo
           )}
         </div>
 
-        <div className="px-4 sm:px-6 py-4 border-t border-slate-200 dark:border-slate-800 flex justify-end"><button onClick={persist} className="px-5 h-11 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-black flex items-center gap-2"><Save className="w-4 h-4" /> حفظ التعديلات</button></div>
+        <div className="px-4 sm:px-6 py-4 border-t border-slate-200 dark:border-slate-800 flex justify-end">
+          <button type="button" onClick={persist} disabled={isSaving} className="px-5 h-11 rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 disabled:cursor-wait text-white font-black flex items-center gap-2">
+            <Save className="w-4 h-4" /> {isSaving ? 'جاري الحفظ والتحقق...' : 'حفظ التعديلات'}
+          </button>
+        </div>
       </div>
     </div>
   );
