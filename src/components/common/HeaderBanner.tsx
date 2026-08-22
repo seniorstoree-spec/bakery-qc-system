@@ -22,14 +22,10 @@ export const HeaderBanner: React.FC<HeaderBannerProps> = ({
   return (
     <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 md:p-6 shadow-sm mb-6 print:border-black print:shadow-none">
       <div className="flex flex-col md:flex-row items-center justify-between gap-4 border-b border-slate-100 dark:border-slate-800 pb-4">
-        {/* Company Title */}
         <div className="flex items-center gap-3">
-          <div className="w-12 h-12 rounded-xl bg-rose-600 flex items-center justify-center text-white font-bold text-xl shadow-md shadow-rose-600/20">
-            العبد
-          </div>
           <div>
             <h1 className="text-lg md:text-xl font-black text-slate-900 dark:text-white tracking-tight">
-              شركة العبد للإستثمار والتصنيع وتجارة الحلوى
+              تقرير مراقبة الجودة لقسم المخبوزات
             </h1>
             <div className="flex items-center gap-2 text-xs md:text-sm font-semibold text-rose-600 dark:text-rose-400">
               <span>إدارة الجودة وتأكيد الجودة</span>
@@ -41,7 +37,6 @@ export const HeaderBanner: React.FC<HeaderBannerProps> = ({
           </div>
         </div>
 
-        {/* Document Control Metadata */}
         <div className="flex flex-wrap items-center gap-2 text-xs text-slate-600 dark:text-slate-400 bg-slate-50 dark:bg-slate-800/60 p-2.5 rounded-xl border border-slate-200 dark:border-slate-700">
           <div className="flex items-center gap-1.5 font-mono px-2 py-1 bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700 font-bold text-slate-800 dark:text-slate-200">
             <FileText className="w-3.5 h-3.5 text-rose-500" />
@@ -57,7 +52,6 @@ export const HeaderBanner: React.FC<HeaderBannerProps> = ({
         </div>
       </div>
 
-      {/* Module Title */}
       <div className="pt-4 flex flex-col md:flex-row md:items-center justify-between gap-2">
         <div>
           <h2 className="text-xl md:text-2xl font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
