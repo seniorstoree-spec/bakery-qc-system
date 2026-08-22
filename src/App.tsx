@@ -9,7 +9,8 @@ import { WeightsTempModule } from './components/WeightsTemp/WeightsTempModule';
 import { CcpOprpModule } from './components/CCP_OPRP/CcpOprpModule';
 import { SensoryFoodSafetyModule } from './components/SensoryFoodSafety/SensoryFoodSafetyModule';
 import { ProductReleaseModule } from './components/ProductRelease/ProductReleaseModule';
-import { AdminPanel, LoginScreen, clearSession, getSession, setSession } from './admin/adminUi';
+import { AdminPanel, clearSession, getSession, setSession } from './admin/adminUi';
+import { SupabaseLoginScreen } from './admin/SupabaseLoginScreen';
 import { applyAdminAppearance } from './admin/admin.css';
 import { loadAdminConfig, syncAdminConfigFromSupabase } from './admin/adminConfig';
 import { AdminConfig, LoginMode } from './admin/adminTypes';
@@ -32,7 +33,7 @@ const AppShell:React.FC=()=>{
   useEffect(()=>{let active=true; const load=async()=>{const remote=await syncAdminConfigFromSupabase(); if(active&&remote)setConfig(remote)}; void load(); return()=>{active=false}},[]);
   const login=(mode:LoginMode,userId?:string)=>{const next={mode,userId};setSession(next);setSessionState(next)};
   const logout=()=>{clearSession();setSessionState(null)};
-  if(!session)return <LoginScreen config={config} onLogin={login}/>;
+  if(!session)return <SupabaseLoginScreen config={config} onLogin={login}/>;
   return <MainLayout config={config} onConfigChange={setConfig} onLogout={logout}/>;
 };
 export default function App(){return <AppProvider><AppShell/></AppProvider>}
