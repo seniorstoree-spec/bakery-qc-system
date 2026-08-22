@@ -6,7 +6,7 @@ import { supabase } from '../lib/supabase';
 
 interface Props {
   config: AdminConfig;
-  onLogin: (mode: LoginMode, userId?: string) => void;
+  onLogin: (mode: LoginMode, userId?: string) => void | Promise<void>;
 }
 
 type LoginUser = { id: string; name: string; position: string | null; role: string | null; active: boolean };
@@ -22,20 +22,6 @@ export const SupabaseLoginScreen: React.FC<Props> = ({ config, onLogin }) => {
 
   useEffect(() => {
     let mounted = true;
-
-    // Show the current developer configuration immediately. This keeps the
-    // login list available even while Supabase is loading.
-    const localUsers: LoginUser[] = (config.users ?? [])
-      .filter((user) => user.enabled)
-      .map((user) => ({
-        id: user.id,
-        name: user.name,
-        position: user.position ?? user.title ?? null,
-        role: user.role ?? null,
-        active: true,
-      }));
-    setUsers(localUsers);
-
     const loadUsers = async () => {
       setLoadingUsers(true);
       try {
@@ -44,25 +30,43 @@ export const SupabaseLoginScreen: React.FC<Props> = ({ config, onLogin }) => {
           .select('id,name,position,role,active')
           .eq('active', true)
           .order('name', { ascending: true });
-
         if (error) throw error;
-        if (!mounted) return;
 
-        // Merge the central users table with the saved developer configuration.
-        // Supabase records win when the same user name exists in both sources.
-        const merged = new Map<string, LoginUser>();
-        localUsers.forEach((user) => merged.set(user.name.trim().toLowerCase(), user));
-        ((data ?? []) as LoginUser[]).forEach((user) => merged.set(user.name.trim().toLowerCase(), user));
-        setUsers(Array.from(merged.values()).sort((a, b) => a.name.localeCompare(b.name, 'ar')));
+        const remoteUsers = (data ?? []) as LoginUser[];
+        const configUsers: LoginUser[] = config.users
+          .filter((user) => user.enabled)
+          .map((user) => ({
+            id: user.id,
+            name: user.name,
+            position: user.position,
+            role: user.role,
+            active: true,
+          }));
+
+        // Merge the current admin configuration with Supabase records, preferring
+        // Supabase records when the same user ID exists. This keeps the login list
+        // aligned with the developer's saved user list while still supporting
+        // users created directly in the database.
+        const merged = [...configUsers, ...remoteUsers].filter((user, index, all) =>
+          all.findIndex((candidate) => candidate.id === user.id) === index,
+        );
+
+        if (mounted) setUsers(merged);
       } catch (error) {
-        console.warn('Failed to load remote users; using saved configuration:', error);
-        // Do not block login when the remote users table is unavailable.
-        if (mounted) setUsers(localUsers);
+        console.error('Failed to load users:', error);
+        if (mounted) {
+          setUsers(config.users.filter((u) => u.enabled).map((user) => ({
+            id: user.id,
+            name: user.name,
+            position: user.position,
+            role: user.role,
+            active: true,
+          })));
+        }
       } finally {
         if (mounted) setLoadingUsers(false);
       }
     };
-
     void loadUsers();
     return () => { mounted = false; };
   }, [config.users]);
@@ -76,7 +80,7 @@ export const SupabaseLoginScreen: React.FC<Props> = ({ config, onLogin }) => {
         window.alert('اختار اسم المستخدم أولاً.');
         return;
       }
-      onLogin('user', selected.id);
+      await onLogin('user', selected.id);
       return;
     }
 
@@ -91,7 +95,7 @@ export const SupabaseLoginScreen: React.FC<Props> = ({ config, onLogin }) => {
       if (!profile.active) throw new Error('هذا الحساب غير مفعل. تواصل مع المطور.');
       const isDeveloper = profile.role === 'Developer' || profile.role === 'developer' || profile.position === 'System Admin';
       if (!isDeveloper) throw new Error('هذا الحساب ليس حساب مطور.');
-      onLogin('admin', user.id);
+      await onLogin('admin', user.id);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'تعذر تسجيل الدخول.';
       window.alert(`تعذر تسجيل الدخول: ${message}`);
