@@ -22,25 +22,50 @@ export const SupabaseLoginScreen: React.FC<Props> = ({ config, onLogin }) => {
 
   useEffect(() => {
     let mounted = true;
+
+    // Show the current developer configuration immediately. This keeps the
+    // login list available even while Supabase is loading.
+    const localUsers: LoginUser[] = (config.users ?? [])
+      .filter((user) => user.enabled)
+      .map((user) => ({
+        id: user.id,
+        name: user.name,
+        position: user.position ?? user.title ?? null,
+        role: user.role ?? null,
+        active: true,
+      }));
+    setUsers(localUsers);
+
     const loadUsers = async () => {
       setLoadingUsers(true);
       try {
-        const { data, error } = await supabase.from('users').select('id,name,position,role,active').eq('active', true).order('name', { ascending: true });
+        const { data, error } = await supabase
+          .from('users')
+          .select('id,name,position,role,active')
+          .eq('active', true)
+          .order('name', { ascending: true });
+
         if (error) throw error;
-        if (mounted) setUsers((data ?? []) as LoginUser[]);
+        if (!mounted) return;
+
+        // Merge the central users table with the saved developer configuration.
+        // Supabase records win when the same user name exists in both sources.
+        const merged = new Map<string, LoginUser>();
+        localUsers.forEach((user) => merged.set(user.name.trim().toLowerCase(), user));
+        ((data ?? []) as LoginUser[]).forEach((user) => merged.set(user.name.trim().toLowerCase(), user));
+        setUsers(Array.from(merged.values()).sort((a, b) => a.name.localeCompare(b.name, 'ar')));
       } catch (error) {
-        console.error('Failed to load users:', error);
-        if (mounted) {
-          setUsers([]);
-          window.alert('تعذر تحميل قائمة المستخدمين من قاعدة البيانات.');
-        }
+        console.warn('Failed to load remote users; using saved configuration:', error);
+        // Do not block login when the remote users table is unavailable.
+        if (mounted) setUsers(localUsers);
       } finally {
         if (mounted) setLoadingUsers(false);
       }
     };
+
     void loadUsers();
     return () => { mounted = false; };
-  }, []);
+  }, [config.users]);
 
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
