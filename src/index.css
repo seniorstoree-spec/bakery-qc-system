@@ -44,6 +44,43 @@
 
 .animate-fadeIn { animation: fadeIn 0.25s ease-out forwards; }
 
+/* Account / login screen only */
+#root > div:has(form) {
+  width: 100%;
+  min-width: 0;
+  min-height: 100vh;
+  min-height: 100dvh;
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding: clamp(12px, 3vw, 32px) !important;
+}
+
+#root > div:has(form) > div {
+  width: 100%;
+  max-width: 448px;
+  min-width: 0;
+  margin: auto;
+}
+
+#root > div:has(form) > div > div,
+#root > div:has(form) form,
+#root > div:has(form) label,
+#root > div:has(form) select,
+#root > div:has(form) input,
+#root > div:has(form) button {
+  min-width: 0;
+  max-width: 100%;
+}
+
+#root > div:has(form) select,
+#root > div:has(form) input {
+  width: 100%;
+}
+
+#root > div:has(form) select {
+  text-overflow: ellipsis;
+}
+
 @media (max-width: 1023px) {
   .custom-scrollbar::-webkit-scrollbar { width: 4px; height: 4px; }
   aside { max-width: calc(100vw - 16px); }
@@ -56,14 +93,12 @@
   table { display: block; width: 100%; max-width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
   th, td { white-space: nowrap; }
 
-  /* Login / account selection screen */
   #root > div:has(form) {
     min-height: 100dvh;
     height: auto;
-    padding: 12px !important;
+    padding: 10px !important;
     align-items: flex-start !important;
     justify-content: center !important;
-    overflow-y: auto;
   }
 
   #root > div:has(form) > div {
@@ -86,7 +121,6 @@
   #root > div > div.fixed.z-\[80px\] > div { border-radius: 20px !important; }
   #root > div > div.fixed.z-\[80px\] .grid.grid-cols-2.sm\:grid-cols-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 
-  /* Prevent long cards and controls from forcing the viewport wider */
   [class*="min-w-"] { max-width: 100%; }
 }
 
