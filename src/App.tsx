@@ -34,17 +34,12 @@ const AppShell:React.FC=()=>{
   const [session,setSessionState]=useState<{mode:LoginMode;userId?:string}|null>(()=>getSession());
   const { setCurrentUserProfile } = useApp();
 
-  useEffect(()=>{let active=true; const load=async()=>{const remote=await syncAdminConfigFromSupabase(); if(active&&remote)setConfig(remote)}; void load(); return()=>{active=false}},[]);
-
   const loadSelectedUser = async (userId?: string) => {
     if (!userId) return;
 
     const configUser = config.users.find((u) => u.id === userId);
     if (configUser) {
-      setCurrentUserProfile({
-        ...configUser,
-        id: configUser.id,
-      });
+      setCurrentUserProfile({ ...configUser });
       return;
     }
 
@@ -58,7 +53,9 @@ const AppShell:React.FC=()=>{
 
     const roleMap: Record<string, UserProfile['role']> = {
       quality_engineer: 'quality_engineer',
+      production_supervisor: 'production_supervisor',
       quality_supervisor: 'production_supervisor',
+      quality_manager: 'quality_manager',
       department_head: 'quality_manager',
       senior_quality: 'quality_engineer',
       Developer: 'system_admin',
@@ -68,12 +65,28 @@ const AppShell:React.FC=()=>{
     setCurrentUserProfile({
       id: data.id,
       name: data.name,
-      role: roleMap[data.position || ''] || roleMap[data.role || ''] || 'quality_engineer',
+      role: roleMap[data.role || ''] || roleMap[data.position || ''] || 'quality_engineer',
       department: 'إدارة الجودة - قسم المخبوزات',
       title: data.position || 'مستخدم جودة',
       permissions: data.permissions || {},
     });
   };
+
+  useEffect(()=>{
+    let active=true;
+    const load=async()=>{
+      const remote=await syncAdminConfigFromSupabase();
+      if(active&&remote)setConfig(remote);
+    };
+    void load();
+    return()=>{active=false};
+  },[]);
+
+  // Restore the selected employee on page refresh when the session is still valid.
+  useEffect(()=>{
+    if(session?.mode !== 'user' || !session.userId) return;
+    void loadSelectedUser(session.userId);
+  },[session?.mode, session?.userId, config.users]);
 
   const login=async(mode:LoginMode,userId?:string)=>{
     const next={mode,userId};
