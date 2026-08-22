@@ -25,7 +25,7 @@ export const HeaderBanner: React.FC<HeaderBannerProps> = ({
         <div className="flex items-center gap-3">
           <div>
             <h1 className="text-lg md:text-xl font-black text-slate-900 dark:text-white tracking-tight">
-              تقرير مراقبة الجودة لقسم المخبوزات
+              تقرير مراقبة الجودة اليومى لقسم المخبوزات
             </h1>
             <div className="flex items-center gap-2 text-xs md:text-sm font-semibold text-rose-600 dark:text-rose-400">
               <span>إدارة الجودة وتأكيد الجودة</span>
