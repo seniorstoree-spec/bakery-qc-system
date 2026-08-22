@@ -5,7 +5,7 @@
 @layer base {
   html {
     direction: rtl;
-    font-family: 'Cairo', 'Tajawal', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-family: var(--app-font, 'Cairo'), 'Tajawal', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     overflow-x: hidden;
   }
 
@@ -21,102 +21,41 @@
     overflow-x: hidden;
   }
 
-  *,
-  *::before,
-  *::after {
-    box-sizing: border-box;
-  }
-
-  input,
-  select,
-  textarea,
-  button {
-    font: inherit;
-  }
+  *, *,::before, *::after { box-sizing: border-box; }
+  input, select, textarea, button { font: inherit; }
 }
 
 @layer utilities {
-  .touch-target {
-    min-width: 44px;
-    min-height: 44px;
-  }
-
-  .safe-area-pb {
-    padding-bottom: env(safe-area-inset-bottom);
-  }
+  .touch-target { min-width: 44px; min-height: 44px; }
+  .safe-area-pb { padding-bottom: env(safe-area-inset-bottom); }
+  .bg-app-primary { background-color: var(--app-primary, #e11d48); }
+  .text-app-primary { color: var(--app-primary, #e11d48); }
+  .border-app-primary { border-color: var(--app-primary, #e11d48); }
 }
 
-.custom-scrollbar::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-
-.custom-scrollbar::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.custom-scrollbar::-webkit-scrollbar-thumb {
-  background: rgba(148, 163, 184, 0.4);
-  border-radius: 9999px;
-}
-
-.custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: rgba(100, 116, 139, 0.7);
-}
+.custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
+.custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+.custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(148, 163, 184, 0.4); border-radius: 9999px; }
+.custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(100, 116, 139, 0.7); }
 
 @keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(4px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
 }
-
-.animate-fadeIn {
-  animation: fadeIn 0.25s ease-out forwards;
-}
+.animate-fadeIn { animation: fadeIn 0.25s ease-out forwards; }
 
 @media (max-width: 1023px) {
-  .custom-scrollbar::-webkit-scrollbar {
-    width: 4px;
-    height: 4px;
-  }
+  .custom-scrollbar::-webkit-scrollbar { width: 4px; height: 4px; }
 }
 
 @media (max-width: 767px) {
-  main {
-    min-width: 0;
-    max-width: 100vw;
-  }
-
-  button,
-  [role='button'] {
-    -webkit-tap-highlight-color: transparent;
-  }
-
-  input,
-  select,
-  textarea {
-    max-width: 100%;
-  }
+  main { min-width: 0; max-width: 100vw; }
+  button, [role='button'] { -webkit-tap-highlight-color: transparent; }
+  input, select, textarea { max-width: 100%; }
 }
 
 @media print {
-  body {
-    background: white !important;
-    color: black !important;
-  }
-  
-  header, aside, button, .no-print {
-    display: none !important;
-  }
-  
-  main {
-    margin: 0 !important;
-    padding: 0 !important;
-    width: 100% !important;
-  }
+  body { background: white !important; color: black !important; }
+  header, aside, button, .no-print { display: none !important; }
+  main { margin: 0 !important; padding: 0 !important; width: 100% !important; }
 }
