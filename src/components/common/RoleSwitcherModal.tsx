@@ -24,7 +24,7 @@ export const RoleSwitcherModal: React.FC<RoleSwitcherModalProps> = ({ isOpen, on
 
   const managedUsers = loadAdminConfig().users.filter((user) => user.enabled);
 
-  const roleBadges: Record<ManagedUserRole, { label: string; color: string; desc: string }> = {
+  const roleBadges: Record<string, { label: string; color: string; desc: string }> = {
     quality_engineer: {
       label: 'مهندس جودة (Quality Engineer)',
       color: 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/50 dark:text-blue-300 dark:border-blue-800',
