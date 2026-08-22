@@ -1,0 +1,38 @@
+/* Desktop-pointer layout fallback.
+   Some laptops can expose a CSS viewport below 1024px because of browser/OS scaling.
+   Detect a real mouse/trackpad and keep the desktop shell without changing touch tablets. */
+@media (hover: hover) and (pointer: fine) and (min-width: 768px) {
+  /* Sidebar: force the desktop/static layout when a fine pointer is available. */
+  #root aside {
+    position: sticky !important;
+    top: 0 !important;
+    right: auto !important;
+    transform: translateX(0) !important;
+    width: 20rem !important;
+    max-width: 20rem !important;
+    height: 100vh !important;
+    flex-shrink: 0 !important;
+  }
+
+  /* Hide the mobile-only sidebar header and overlay on laptop/desktop pointers. */
+  #root aside > div:first-child {
+    display: none !important;
+  }
+
+  #root > div > div > div.fixed.inset-0.z-40 {
+    display: none !important;
+  }
+
+  /* Hide the mobile menu button in the navbar. */
+  header.sticky.top-0 button[aria-label="فتح القائمة الرئيسية"] {
+    display: none !important;
+  }
+
+  /* Give the main content all remaining horizontal space. */
+  #root main {
+    flex: 1 1 auto !important;
+    min-width: 0 !important;
+    width: auto !important;
+    max-width: 80rem;
+  }
+}
