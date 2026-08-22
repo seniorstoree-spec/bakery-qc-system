@@ -11,6 +11,8 @@ export type ManagedUserRole =
 export interface ManagedUser extends UserProfile {
   position: ManagedUserRole;
   enabled: boolean;
+  /** Stable UUID of the matching public.users row. */
+  supabaseId?: string;
 }
 
 export interface AppSectionConfig {
