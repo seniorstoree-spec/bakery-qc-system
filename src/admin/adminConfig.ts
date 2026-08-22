@@ -103,8 +103,8 @@ async function syncUsersToSupabase(users: ManagedUser[]): Promise<ManagedUser[]>
   const existingUsers = await readSupabaseUsers();
   const byId = new Map(existingUsers.map((u) => [u.id, u]));
   const byName = new Map(existingUsers.map((u) => [u.name.trim(), u]));
-
   const syncedUsers: ManagedUser[] = [];
+  const retainedIds = new Set<string>();
 
   for (const user of users) {
     const existing = isUuid(user.supabaseId)
@@ -113,7 +113,6 @@ async function syncUsersToSupabase(users: ManagedUser[]): Promise<ManagedUser[]>
 
     const stableId = existing?.id ?? createStableUuid();
     const username = existing?.username ?? `user_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-
     const row = {
       id: stableId,
       name: user.name.trim(),
@@ -128,7 +127,22 @@ async function syncUsersToSupabase(users: ManagedUser[]): Promise<ManagedUser[]>
     const { error } = await supabase.from('users').upsert(row, { onConflict: 'id' });
     if (error) throw new Error(`تعذر حفظ المستخدم "${user.name}" في قاعدة البيانات: ${error.message}`);
 
+    retainedIds.add(stableId);
     syncedUsers.push({ ...user, supabaseId: stableId });
+  }
+
+  const idsToDelete = existingUsers
+    .filter((remote) => {
+      if (retainedIds.has(remote.id)) return false;
+      const isDeveloper = remote.role.toLowerCase() === 'developer' || remote.username.toLowerCase() === 'eslamkamel.emk@gmail.com';
+      const looksManaged = remote.username.toLowerCase().startsWith('user_');
+      return !isDeveloper && looksManaged && isUuid(remote.id);
+    })
+    .map((remote) => remote.id);
+
+  if (idsToDelete.length) {
+    const { error: deleteError } = await supabase.from('users').delete().in('id', idsToDelete);
+    if (deleteError) throw new Error(`تعذر حذف المستخدمين من قاعدة البيانات: ${deleteError.message}`);
   }
 
   return syncedUsers;
@@ -148,8 +162,7 @@ export async function saveAdminConfig(config: AdminConfig): Promise<AdminConfig>
   const normalized = normalizeAdminConfig(config);
   const syncedUsers = await syncUsersToSupabase(normalized.users);
   const finalConfig: AdminConfig = { ...normalized, users: syncedUsers };
-  const serialized = JSON.stringify(finalConfig);
-  localStorage.setItem(ADMIN_CONFIG_LOCAL_KEY, serialized);
+  localStorage.setItem(ADMIN_CONFIG_LOCAL_KEY, JSON.stringify(finalConfig));
 
   const { error } = await supabase
     .from('app_state_store')
@@ -163,9 +176,7 @@ export async function saveAdminConfig(config: AdminConfig): Promise<AdminConfig>
       { onConflict: 'state_key' },
     );
 
-  if (error) {
-    throw new Error(`تعذر حفظ إعدادات المستخدمين في قاعدة البيانات: ${error.message}`);
-  }
+  if (error) throw new Error(`تعذر حفظ إعدادات المستخدمين في قاعدة البيانات: ${error.message}`);
 
   const { data, error: verifyError } = await supabase
     .from('app_state_store')
@@ -173,9 +184,7 @@ export async function saveAdminConfig(config: AdminConfig): Promise<AdminConfig>
     .eq('state_key', ADMIN_CONFIG_STATE_KEY)
     .maybeSingle<{ state_data: AdminConfig }>();
 
-  if (verifyError) {
-    throw new Error(`تم الحفظ لكن تعذر التحقق من البيانات: ${verifyError.message}`);
-  }
+  if (verifyError) throw new Error(`تم الحفظ لكن تعذر التحقق من البيانات: ${verifyError.message}`);
 
   const verified = normalizeAdminConfig(data?.state_data ?? finalConfig);
   localStorage.setItem(ADMIN_CONFIG_LOCAL_KEY, JSON.stringify(verified));
@@ -190,12 +199,7 @@ export async function syncAdminConfigFromSupabase(): Promise<AdminConfig | null>
       .eq('state_key', ADMIN_CONFIG_STATE_KEY)
       .maybeSingle<{ state_data: AdminConfig }>();
 
-    if (error) {
-      console.warn('Admin config remote read failed:', error.message);
-      return null;
-    }
-
-    if (!data?.state_data) return null;
+    if (error || !data?.state_data) return null;
 
     const merged = normalizeAdminConfig(data.state_data);
     const remoteUsers = await readSupabaseUsers();
