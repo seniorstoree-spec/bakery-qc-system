@@ -1,4 +1,4 @@
-import { supabase } from '../lib/supabaseClient';
+import { supabase } from '../lib/supabase';
 
 export const QUALITY_TABLES = {
   operatingParams: 'operating_parameters',
@@ -77,18 +77,10 @@ export async function loadInspectionItems() {
   return data ?? [];
 }
 
-export async function createQualityReportWithResults(
-  report: Row,
-  results: Row[],
-) {
+export async function createQualityReportWithResults(report: Row, results: Row[]) {
   assertConfigured();
-  const { data: createdReport, error: reportError } = await supabase
-    .from(QUALITY_TABLES.qualityReports)
-    .insert(report)
-    .select()
-    .single();
+  const { data: createdReport, error: reportError } = await supabase.from(QUALITY_TABLES.qualityReports).insert(report).select().single();
   if (reportError) throw reportError;
-
   if (results.length) {
     const rows = results.map((result) => ({ ...result, report_id: createdReport.id }));
     const { error: resultsError } = await supabase.from(QUALITY_TABLES.checkResults).insert(rows);
@@ -97,6 +89,5 @@ export async function createQualityReportWithResults(
       throw resultsError;
     }
   }
-
   return createdReport;
 }
