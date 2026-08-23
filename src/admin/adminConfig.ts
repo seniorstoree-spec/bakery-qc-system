@@ -152,7 +152,30 @@ export function loadAdminConfig(): AdminConfig {
   try {
     const raw = localStorage.getItem(ADMIN_CONFIG_LOCAL_KEY);
     if (!raw) return DEFAULT_ADMIN_CONFIG;
-    return normalizeAdminConfig(JSON.parse(raw) as Partial<AdminConfig>);
+
+    const parsed = JSON.parse(raw) as Partial<AdminConfig>;
+    const normalized = normalizeAdminConfig(parsed);
+
+    // Migrate stale browser configuration from older releases.
+    // User/section settings are preserved, while the canonical application
+    // branding is restored automatically without requiring the user to clear storage.
+    if (
+      normalized.content.appTitle !== DEFAULT_ADMIN_CONFIG.content.appTitle ||
+      normalized.content.appSubtitle !== DEFAULT_ADMIN_CONFIG.content.appSubtitle
+    ) {
+      const migrated: AdminConfig = {
+        ...normalized,
+        content: {
+          ...normalized.content,
+          appTitle: DEFAULT_ADMIN_CONFIG.content.appTitle,
+          appSubtitle: DEFAULT_ADMIN_CONFIG.content.appSubtitle,
+        },
+      };
+      localStorage.setItem(ADMIN_CONFIG_LOCAL_KEY, JSON.stringify(migrated));
+      return migrated;
+    }
+
+    return normalized;
   } catch {
     return DEFAULT_ADMIN_CONFIG;
   }
@@ -204,7 +227,15 @@ export async function syncAdminConfigFromSupabase(): Promise<AdminConfig | null>
     const merged = normalizeAdminConfig(data.state_data);
     const remoteUsers = await readSupabaseUsers();
     const enriched = enrichWithStableSupabaseIds(merged.users, remoteUsers);
-    const finalConfig: AdminConfig = { ...merged, users: enriched };
+    const finalConfig: AdminConfig = {
+      ...merged,
+      users: enriched,
+      content: {
+        ...merged.content,
+        appTitle: DEFAULT_ADMIN_CONFIG.content.appTitle,
+        appSubtitle: DEFAULT_ADMIN_CONFIG.content.appSubtitle,
+      },
+    };
     localStorage.setItem(ADMIN_CONFIG_LOCAL_KEY, JSON.stringify(finalConfig));
     return finalConfig;
   } catch {
