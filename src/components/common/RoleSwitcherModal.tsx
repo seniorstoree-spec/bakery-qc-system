@@ -6,12 +6,14 @@ import { UserRole } from '../../types';
 import { Shield, Check, Key } from 'lucide-react';
 
 interface RoleSwitcherModalProps { isOpen:boolean; onClose:()=>void; }
-const POSITION_TO_ROLE:Record<ManagedUserRole,UserRole>={quality_engineer:'quality_engineer',quality_supervisor:'production_supervisor',department_head:'quality_manager',senior_quality:'quality_engineer'};
+const POSITION_TO_ROLE:Record<ManagedUserRole,UserRole>={quality_engineer:'quality_engineer',quality_supervisor:'production_supervisor',department_head:'quality_manager',senior_quality:'quality_engineer',quality_department_manager:'quality_manager',deputy_quality_manager:'quality_manager'};
 const BADGES:Record<ManagedUserRole,{label:string;color:string;desc:string}>={
  quality_engineer:{label:'مهندس جودة (Quality Engineer)',color:'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/50 dark:text-blue-300 dark:border-blue-800',desc:'تسجيل البيانات اليومية ومتابعة درجات الحرارة والأوزان وعيوب الجودة'},
  quality_supervisor:{label:'مشرف (Supervisor)',color:'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/50 dark:text-amber-300 dark:border-amber-800',desc:'عرض ومتابعة البيانات حسب الصلاحيات المحددة من المطور'},
  department_head:{label:'رئيس قسم (Department Head)',color:'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/50 dark:text-emerald-300 dark:border-emerald-800',desc:'مراجعة التقارير والاعتمادات حسب الصلاحيات المحددة من المطور'},
  senior_quality:{label:'سنيور جودة (Senior Quality)',color:'bg-violet-50 text-violet-700 border-violet-200 dark:bg-violet-950/50 dark:text-violet-300 dark:border-violet-800',desc:'صلاحيات جودة متقدمة وفق إعدادات المطور'},
+ quality_department_manager:{label:'مدير إدارة الجودة',color:'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/50 dark:text-rose-300 dark:border-rose-800',desc:'إدارة ومراجعة أعمال الجودة وفق الإعدادات الحالية'},
+ deputy_quality_manager:{label:'نائب مدير الجودة',color:'bg-cyan-50 text-cyan-700 border-cyan-200 dark:bg-cyan-950/50 dark:text-cyan-300 dark:border-cyan-800',desc:'مراجعة ومتابعة أعمال الجودة وفق الإعدادات الحالية'},
 };
 export const RoleSwitcherModal:React.FC<RoleSwitcherModalProps>=({isOpen,onClose})=>{
  const {currentUser,setCurrentUserProfile}=useApp();
