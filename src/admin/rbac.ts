@@ -10,7 +10,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, UserProfile['permissions']> = {
     canExportReports: true,
     canSignOff: true,
   },
-  quality_supervisor: {
+  production_supervisor: {
     // Review/approval role: no operational data entry.
     canEnterData: false,
     canApproveRelease: true,
