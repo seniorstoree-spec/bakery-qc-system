@@ -1,34 +1,91 @@
 import { supabase } from '../lib/supabase';
+import { QualityReport, QualityCheckResult, InspectionItem } from './qualityReportsService';
 
-const monthNames=['يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'];
-
-export async function ensureArchiveFolder(date=new Date()) {
-  const year=date.getFullYear();
-  const month=date.getMonth()+1;
-  const {data,error}=await supabase.from('archive_folders').upsert({year,month,month_name:monthNames[month-1]},{onConflict:'year,month'}).select().single();
-  if(error) throw error;
-  return data;
+export interface ArchiveMonth {
+  year: number;
+  month: number;
+  monthName: string;
+  reportCount: number;
 }
 
-export async function archiveReport(input:{reportId:string;reportType:string;reportCode?:string;reportDate:string}) {
-  const folder=await ensureArchiveFolder(new Date(input.reportDate));
-  const {data,error}=await supabase.from('archived_reports').upsert({
-    report_id:input.reportId,
-    report_type:input.reportType,
-    report_code:input.reportCode,
-    report_date:input.reportDate,
-    archive_folder_id:folder.id
-  },{onConflict:'report_id,report_type'}).select().single();
-  if(error) throw error;
-  return data;
+const monthNames = ['يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'];
+
+export async function listArchiveMonths(): Promise<ArchiveMonth[]> {
+  const { data, error } = await supabase
+    .from('quality_reports')
+    .select('date')
+    .eq('section', 'bakery')
+    .order('date', { ascending: false });
+  if (error) throw error;
+
+  const map = new Map<string, ArchiveMonth>();
+  for (const row of data ?? []) {
+    if (!row.date) continue;
+    const [yearText, monthText] = String(row.date).split('-');
+    const year = Number(yearText);
+    const month = Number(monthText);
+    if (!year || !month) continue;
+    const key = `${year}-${month}`;
+    const current = map.get(key);
+    if (current) current.reportCount += 1;
+    else map.set(key, { year, month, monthName: monthNames[month - 1] ?? String(month), reportCount: 1 });
+  }
+  return [...map.values()].sort((a, b) => b.year - a.year || b.month - a.month);
 }
 
-export async function searchArchive(filters:{folderId?:string;date?:string;code?:string}) {
-  let query=supabase.from('archived_reports').select('*, archive_folders(*)').order('report_date',{ascending:false});
-  if(filters.folderId) query=query.eq('archive_folder_id',filters.folderId);
-  if(filters.date) query=query.eq('report_date',filters.date);
-  if(filters.code) query=query.ilike('report_code',`%${filters.code}%`);
-  const {data,error}=await query;
-  if(error) throw error;
-  return data||[];
+export async function listArchiveReports(year: number, month: number) {
+  const start = `${year}-${String(month).padStart(2, '0')}-01`;
+  const next = new Date(year, month, 1);
+  const end = `${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, '0')}-01`;
+  const { data, error } = await supabase
+    .from('quality_reports')
+    .select('*')
+    .eq('section', 'bakery')
+    .gte('date', start)
+    .lt('date', end)
+    .order('date', { ascending: false })
+    .order('created_at', { ascending: false });
+  if (error) throw error;
+  return (data ?? []) as QualityReport[];
+}
+
+export async function getArchiveReport(reportId: string) {
+  const [{ data: report, error: reportError }, { data: results, error: resultsError }, { data: items, error: itemsError }] = await Promise.all([
+    supabase.from('quality_reports').select('*').eq('id', reportId).single(),
+    supabase.from('quality_check_results').select('*').eq('report_id', reportId).order('created_at'),
+    supabase.from('inspection_items').select('*').eq('active', true).or('section.is.null,section.eq.bakery').order('order_number'),
+  ]);
+  if (reportError) throw reportError;
+  if (resultsError) throw resultsError;
+  if (itemsError) throw itemsError;
+  return {
+    report: report as QualityReport,
+    results: (results ?? []) as QualityCheckResult[],
+    items: (items ?? []) as InspectionItem[],
+  };
+}
+
+export async function saveArchiveReport(
+  reportId: string,
+  patch: Partial<Pick<QualityReport, 'date' | 'shift' | 'status'>>,
+  results: Omit<QualityCheckResult, 'id' | 'report_id'>[],
+) {
+  const { data: report, error: reportError } = await supabase
+    .from('quality_reports')
+    .update(patch)
+    .eq('id', reportId)
+    .select()
+    .single();
+  if (reportError) throw reportError;
+
+  const { error: deleteError } = await supabase.from('quality_check_results').delete().eq('report_id', reportId);
+  if (deleteError) throw deleteError;
+
+  if (results.length) {
+    const { error: insertError } = await supabase
+      .from('quality_check_results')
+      .insert(results.map(result => ({ ...result, report_id: reportId })));
+    if (insertError) throw insertError;
+  }
+  return report as QualityReport;
 }
