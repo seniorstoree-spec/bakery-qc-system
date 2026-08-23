@@ -1,44 +1,35 @@
-const storageKey = (table: string) => `bakery_qc_repo_${table}`;
+import { supabase } from '../lib/supabaseClient';
 
-function readTable(table: string): Array<Record<string, unknown>> {
-  try {
-    const raw = localStorage.getItem(storageKey(table));
-    return raw ? JSON.parse(raw) : [];
-  } catch {
-    return [];
-  }
-}
+type Row = Record<string, unknown>;
 
-function writeTable(table: string, rows: Array<Record<string, unknown>>) {
-  localStorage.setItem(storageKey(table), JSON.stringify(rows));
+function isSupabaseConfigured() {
+  return Boolean(import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_ANON_KEY);
 }
 
 export const dataRepository = {
   async insert(table: string, payload: unknown) {
-    const row = { ...(payload as Record<string, unknown>), id: String((payload as Record<string, unknown>)?.id ?? `${table}-${Date.now()}`) };
-    writeTable(table, [row, ...readTable(table)]);
-    return row;
+    if (!isSupabaseConfigured()) throw new Error('Supabase is not configured.');
+    const { data, error } = await supabase.from(table).insert(payload as Row).select().single();
+    if (error) throw error;
+    return data as Row;
   },
-
-  async getAll(table: string) {
-    return readTable(table);
-  },
-
+  async getAll(table: string) { return this.select(table); },
   async select(table: string) {
-    return readTable(table);
+    if (!isSupabaseConfigured()) throw new Error('Supabase is not configured.');
+    const { data, error } = await supabase.from(table).select('*');
+    if (error) throw error;
+    return (data ?? []) as Row[];
   },
-
   async update(table: string, id: string, payload: unknown) {
-    const rows = readTable(table);
-    const index = rows.findIndex((row) => String(row.id) === id);
-    if (index < 0) return null;
-    rows[index] = { ...rows[index], ...(payload as Record<string, unknown>), id };
-    writeTable(table, rows);
-    return rows[index];
+    if (!isSupabaseConfigured()) throw new Error('Supabase is not configured.');
+    const { data, error } = await supabase.from(table).update(payload as Row).eq('id', id).select().single();
+    if (error) throw error;
+    return data as Row;
   },
-
   async remove(table: string, id: string) {
-    writeTable(table, readTable(table).filter((row) => String(row.id) !== id));
+    if (!isSupabaseConfigured()) throw new Error('Supabase is not configured.');
+    const { error } = await supabase.from(table).delete().eq('id', id);
+    if (error) throw error;
     return true;
   },
 };
