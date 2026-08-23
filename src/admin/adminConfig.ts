@@ -30,7 +30,7 @@ export const DEFAULT_ADMIN_CONFIG: AdminConfig = {
   sections: DEFAULT_SECTIONS,
   appearance: { primaryColor: '#e11d48', accentColor: '#4f46e5', fontFamily: 'system-ui' },
   content: {
-    appTitle: 'منظومة الجودة وقسم المخبوزات',
+    appTitle: 'تقرير الجودة اليومى لقسم المخبوزات',
     appSubtitle: 'نظام الرقابة اللحظية ونقاط التحكم الحرجة (HACCP & IPC)',
     liveLabel: 'مباشر',
   },
