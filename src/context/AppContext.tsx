@@ -1,8 +1,9 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { 
   UserProfile, UserRole, OperatingParametersLog, DefectItemRow, CoreTemperatureRecord, MetalDetectorRecord, ElectricSieveRecord, AdditiveWeightRecord, SensoryEvaluationRecord, NonConformanceRecord, DailySanitationLog, DailyFoodSafetyLog, FinishedProductReleaseForm, ProductWeightSpecRecord
 } from '../types';
 import { INITIAL_USERS, INITIAL_OPERATING_PARAMETERS, INITIAL_DEFECT_LOGS, INITIAL_CORE_TEMPERATURES, INITIAL_METAL_DETECTOR_RECORDS, INITIAL_ELECTRIC_SIEVE_RECORDS, INITIAL_ADDITIVE_RECORDS, INITIAL_SENSORY_EVALUATIONS, INITIAL_NON_CONFORMANCE_RECORDS, INITIAL_SANITATION_LOG_B1, INITIAL_FOOD_SAFETY_LOG, INITIAL_RELEASE_FORM_B1, INITIAL_RELEASE_FORM_B2, INITIAL_PRODUCT_WEIGHT_SPECS } from '../data/initialData';
+import { qualityReportsService, QualityReport, InspectionItem, QualityCheckResult } from '../services/qualityReportsService';
 
 interface KPISummary { totalSamplesInspected:number; compliantCount:number; nonCompliantCount:number; warningCount:number; compliancePercentage:number; criticalDeviationsCount:number; releaseStatusB1:'approved'|'pending'|'rejected'; releaseStatusB2:'approved'|'pending'|'rejected'; avgSensoryScore:number; avgCoreTemp:number; ccpFailureCount:number; }
 interface AppContextType {
@@ -10,6 +11,7 @@ interface AppContextType {
   currentUser:UserProfile; setCurrentUserRole:(role:UserRole)=>void; setCurrentUserProfile:(user:UserProfile)=>void;
   isDarkMode:boolean; setIsDarkMode:(val:boolean|((prev:boolean)=>boolean))=>void;
   activeDate:string; setActiveDate:(date:string)=>void;
+  qualityReports:QualityReport[]; inspectionItems:InspectionItem[]; loadQualityReports:()=>Promise<void>; createQualityReport:(report:Omit<QualityReport,'id'|'created_by'|'section'>,results?:Omit<QualityCheckResult,'id'|'report_id'>[])=>Promise<QualityReport>; updateQualityReport:(id:string,patch:Partial<Pick<QualityReport,'date'|'shift'|'status'>>)=>Promise<QualityReport>; saveQualityCheckResults:(reportId:string,results:Omit<QualityCheckResult,'id'|'report_id'>[])=>Promise<QualityCheckResult[]>; deleteQualityReport:(id:string)=>Promise<void>;
   operatingParams:OperatingParametersLog[]; addOperatingParam:(param:Omit<OperatingParametersLog,'id'>)=>void; deleteOperatingParam:(id:string)=>void;
   defectLogs:DefectItemRow[]; addDefectLog:(log:Omit<DefectItemRow,'id'>)=>void; updateDefectLog:(id:string,log:Partial<DefectItemRow>)=>void; deleteDefectLog:(id:string)=>void;
   coreTemperatures:CoreTemperatureRecord[]; addCoreTemperature:(rec:Omit<CoreTemperatureRecord,'id'>)=>void; deleteCoreTemperature:(id:string)=>void;
@@ -32,6 +34,8 @@ export const AppProvider:React.FC<{children:React.ReactNode}>=({children})=>{
  const [currentUser,setCurrentUser]=useState<UserProfile>(INITIAL_USERS[0]);
  const [isDarkMode,setIsDarkMode]=useState<boolean>(()=>localStorage.getItem('bakery_theme')==='dark');
  const [activeDate,setActiveDate]=useState<string>('2026-08-20');
+ const [qualityReports,setQualityReports]=useState<QualityReport[]>([]);
+ const [inspectionItems,setInspectionItems]=useState<InspectionItem[]>([]);
  const [operatingParams,setOperatingParams]=useState<OperatingParametersLog[]>(()=>{const s=localStorage.getItem(`${LOCAL_STORAGE_KEY}_op_params`);return s?JSON.parse(s):INITIAL_OPERATING_PARAMETERS});
  const [defectLogs,setDefectLogs]=useState<DefectItemRow[]>(()=>{const s=localStorage.getItem(`${LOCAL_STORAGE_KEY}_defect_logs`);return s?JSON.parse(s):INITIAL_DEFECT_LOGS});
  const [coreTemperatures,setCoreTemperatures]=useState<CoreTemperatureRecord[]>(()=>{const s=localStorage.getItem(`${LOCAL_STORAGE_KEY}_core_temp`);return s?JSON.parse(s):INITIAL_CORE_TEMPERATURES});
@@ -45,6 +49,18 @@ export const AppProvider:React.FC<{children:React.ReactNode}>=({children})=>{
  const [releaseFormB1,setReleaseFormB1]=useState<FinishedProductReleaseForm>(()=>{const s=localStorage.getItem(`${LOCAL_STORAGE_KEY}_rel_b1`);return s?JSON.parse(s):INITIAL_RELEASE_FORM_B1});
  const [releaseFormB2,setReleaseFormB2]=useState<FinishedProductReleaseForm>(()=>{const s=localStorage.getItem(`${LOCAL_STORAGE_KEY}_rel_b2`);return s?JSON.parse(s):INITIAL_RELEASE_FORM_B2});
  const [productWeightSpecs,setProductWeightSpecs]=useState<ProductWeightSpecRecord[]>(()=>{const s=localStorage.getItem(`${LOCAL_STORAGE_KEY}_weight_specs`);return s?JSON.parse(s):INITIAL_PRODUCT_WEIGHT_SPECS});
+
+ const loadQualityReports=useCallback(async()=>{
+   try{
+     const [reports,items]=await Promise.all([qualityReportsService.list(activeDate),qualityReportsService.getInspectionItems()]);
+     setQualityReports(reports);
+     setInspectionItems(items);
+   }catch(error){
+     console.warn('Supabase daily quality report load failed; local application state remains available.',error);
+   }
+ },[activeDate]);
+
+ useEffect(()=>{void loadQualityReports()},[loadQualityReports]);
  useEffect(()=>localStorage.setItem(`${LOCAL_STORAGE_KEY}_op_params`,JSON.stringify(operatingParams)),[operatingParams]);
  useEffect(()=>localStorage.setItem(`${LOCAL_STORAGE_KEY}_defect_logs`,JSON.stringify(defectLogs)),[defectLogs]);
  useEffect(()=>localStorage.setItem(`${LOCAL_STORAGE_KEY}_core_temp`,JSON.stringify(coreTemperatures)),[coreTemperatures]);
@@ -61,6 +77,10 @@ export const AppProvider:React.FC<{children:React.ReactNode}>=({children})=>{
  useEffect(()=>{if(isDarkMode){document.documentElement.classList.add('dark');localStorage.setItem('bakery_theme','dark')}else{document.documentElement.classList.remove('dark');localStorage.setItem('bakery_theme','light')}},[isDarkMode]);
  const setCurrentUserRole=(role:UserRole)=>setCurrentUser(INITIAL_USERS.find(u=>u.role===role)||INITIAL_USERS[0]);
  const setCurrentUserProfile=(user:UserProfile)=>setCurrentUser({...user});
+ const createQualityReport=async(report:Omit<QualityReport,'id'|'created_by'|'section'>,results:Omit<QualityCheckResult,'id'|'report_id'>[]=[])=>{const created=await qualityReportsService.create(report,results);setQualityReports(prev=>[created,...prev.filter(r=>r.id!==created.id)]);return created};
+ const updateQualityReport=async(id:string,patch:Partial<Pick<QualityReport,'date'|'shift'|'status'>>)=>{const updated=await qualityReportsService.update(id,patch);setQualityReports(prev=>prev.map(r=>r.id===id?updated:r));return updated};
+ const saveQualityCheckResults=async(reportId:string,results:Omit<QualityCheckResult,'id'|'report_id'>[])=>qualityReportsService.saveResults(reportId,results);
+ const deleteQualityReport=async(id:string)=>{await qualityReportsService.remove(id);setQualityReports(prev=>prev.filter(r=>r.id!==id))};
  const addOperatingParam=(p:Omit<OperatingParametersLog,'id'>)=>setOperatingParams(prev=>[{...p,id:`op-${Date.now()}`},...prev]);
  const deleteOperatingParam=(id:string)=>setOperatingParams(prev=>prev.filter(p=>p.id!==id));
  const addDefectLog=(l:Omit<DefectItemRow,'id'>)=>setDefectLogs(prev=>[{...l,id:`def-${Date.now()}`},...prev]);
@@ -90,6 +110,6 @@ export const AppProvider:React.FC<{children:React.ReactNode}>=({children})=>{
  const totalSamplesInspected=defectLogs.reduce((a,c)=>a+c.sampleSize,0)+coreTemperatures.length*5+metalDetectorLogs.length*3+sensoryEvaluations.length*2;
  const nonCompliantDefects=defectLogs.filter(d=>d.status==='non_compliant').length; const warningDefects=defectLogs.filter(d=>d.status==='warning').length; const compliantDefects=defectLogs.filter(d=>d.status==='compliant').length; const tempFails=coreTemperatures.filter(t=>!t.isCompliant).length; const ccpFails=metalDetectorLogs.filter(m=>!m.isCompliant).length+electricSieveLogs.filter(s=>!s.isCompliant).length; const totalChecks=(defectLogs.length||1)+(coreTemperatures.length||1)+(metalDetectorLogs.length||1); const totalFails=nonCompliantDefects+tempFails+ccpFails; const compliancePercentage=Math.max(0,Math.min(100,Math.round(((totalChecks-totalFails)/totalChecks)*100))); const criticalDeviationsCount=nonConformanceLogs.length+ccpFails+tempFails; const avgSensoryScore=sensoryEvaluations.length?Number((sensoryEvaluations.reduce((a,c)=>a+c.overallImpressionScore,0)/sensoryEvaluations.length).toFixed(1)):9; const avgCoreTemp=coreTemperatures.length?Number((coreTemperatures.reduce((a,c)=>a+c.coreTemperature,0)/coreTemperatures.length).toFixed(1)):93.5;
  const kpi:KPISummary={totalSamplesInspected,compliantCount:compliantDefects,nonCompliantCount:nonCompliantDefects,warningCount:warningDefects,compliancePercentage,criticalDeviationsCount,releaseStatusB1:releaseFormB1.decision,releaseStatusB2:releaseFormB2.decision,avgSensoryScore,avgCoreTemp,ccpFailureCount:ccpFails};
- return <AppContext.Provider value={{activeSection,setActiveSection,currentUser,setCurrentUserRole,setCurrentUserProfile,isDarkMode,setIsDarkMode,activeDate,setActiveDate,operatingParams,addOperatingParam,deleteOperatingParam,defectLogs,addDefectLog,updateDefectLog,deleteDefectLog,coreTemperatures,addCoreTemperature,deleteCoreTemperature,metalDetectorLogs,addMetalDetectorRecord,updateMetalDetectorRecord,deleteMetalDetectorRecord,electricSieveLogs,addElectricSieveRecord,deleteElectricSieveRecord,additiveWeights,addAdditiveWeightRecord,deleteAdditiveWeightRecord,sensoryEvaluations,addSensoryEvaluation,deleteSensoryEvaluation,nonConformanceLogs,addNonConformanceRecord,updateNonConformanceRecord,deleteNonConformanceRecord,sanitationLogB1,updateSanitationLogB1,foodSafetyLog,updateFoodSafetyLog,releaseFormB1,updateReleaseFormB1,releaseFormB2,updateReleaseFormB2,productWeightSpecs,addProductWeightSpec,deleteProductWeightSpec,kpi,resetAllData,exportDataJSON,importDataJSON,triggerMockUpdate}}>{children}</AppContext.Provider>;
+ return <AppContext.Provider value={{activeSection,setActiveSection,currentUser,setCurrentUserRole,setCurrentUserProfile,isDarkMode,setIsDarkMode,activeDate,setActiveDate,qualityReports,inspectionItems,loadQualityReports,createQualityReport,updateQualityReport,saveQualityCheckResults,deleteQualityReport,operatingParams,addOperatingParam,deleteOperatingParam,defectLogs,addDefectLog,updateDefectLog,deleteDefectLog,coreTemperatures,addCoreTemperature,deleteCoreTemperature,metalDetectorLogs,addMetalDetectorRecord,updateMetalDetectorRecord,deleteMetalDetectorRecord,electricSieveLogs,addElectricSieveRecord,deleteElectricSieveRecord,additiveWeights,addAdditiveWeightRecord,deleteAdditiveWeightRecord,sensoryEvaluations,addSensoryEvaluation,deleteSensoryEvaluation,nonConformanceLogs,addNonConformanceRecord,updateNonConformanceRecord,deleteNonConformanceRecord,sanitationLogB1,updateSanitationLogB1,foodSafetyLog,updateFoodSafetyLog,releaseFormB1,updateReleaseFormB1,releaseFormB2,updateReleaseFormB2,productWeightSpecs,addProductWeightSpec,deleteProductWeightSpec,kpi,resetAllData,exportDataJSON,importDataJSON,triggerMockUpdate}}>{children}</AppContext.Provider>;
 };
 export const useApp=()=>{const c=useContext(AppContext);if(!c)throw new Error('useApp must be used within an AppProvider');return c;};
