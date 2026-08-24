@@ -10,7 +10,6 @@ export interface ArchiveMonth {
 
 const monthNames = ['يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'];
 
-// Database rows use snake_case; map them into the camelCase app type.
 const mapDailyReport = (row: any): DailyQualityReport => ({
   id: row.id,
   reportDate: row.report_date,
@@ -22,10 +21,56 @@ const mapDailyReport = (row: any): DailyQualityReport => ({
   totalSections: row.total_sections ?? undefined,
 });
 
+const getAuthUserId = async (): Promise<string | null> => {
+  const { data } = await supabase.auth.getUser();
+  return data.user?.id ?? null;
+};
+
+export async function getOrCreateDailyReport(reportDate: string): Promise<DailyQualityReport> {
+  const { data: existing, error: findError } = await supabase
+    .from('daily_quality_reports')
+    .select('*')
+    .eq('report_date', reportDate)
+    .eq('department', 'bakery')
+    .maybeSingle();
+
+  if (findError) throw findError;
+  if (existing) return mapDailyReport(existing);
+
+  const authUserId = await getAuthUserId();
+  const { data: created, error: createError } = await supabase
+    .from('daily_quality_reports')
+    .insert({
+      report_date: reportDate,
+      department: 'bakery',
+      status: 'open',
+      created_by: authUserId,
+      total_sections: 8,
+    })
+    .select()
+    .single();
+
+  if (createError) {
+    if (createError.code === '23505') {
+      const { data: concurrent } = await supabase
+        .from('daily_quality_reports')
+        .select('*')
+        .eq('report_date', reportDate)
+        .eq('department', 'bakery')
+        .single();
+      if (concurrent) return mapDailyReport(concurrent);
+    }
+    throw createError;
+  }
+
+  return mapDailyReport(created);
+}
+
 export async function listArchiveMonths(): Promise<ArchiveMonth[]> {
   const { data, error } = await supabase
     .from('daily_quality_reports')
     .select('report_date')
+    .eq('department', 'bakery')
     .eq('status', 'archived')
     .order('report_date', { ascending: false });
   if (error) throw error;
@@ -55,6 +100,7 @@ export async function listArchiveReports(year: number, month: number): Promise<D
   const { data, error } = await supabase
     .from('daily_quality_reports')
     .select('*')
+    .eq('department', 'bakery')
     .eq('status', 'archived')
     .gte('report_date', start)
     .lt('report_date', end)
@@ -87,6 +133,23 @@ export async function saveArchiveReport(reportId: string, patch: Partial<DailyQu
     .from('daily_quality_reports')
     .update(dbPatch)
     .eq('id', reportId)
+    .select()
+    .single();
+
+  if (error) throw error;
+  return mapDailyReport(data);
+}
+
+export async function archiveReport(reportId: string): Promise<DailyQualityReport> {
+  const { data, error } = await supabase
+    .from('daily_quality_reports')
+    .update({
+      status: 'archived',
+      closed_at: new Date().toISOString(),
+      archived_at: new Date().toISOString(),
+    })
+    .eq('id', reportId)
+    .eq('department', 'bakery')
     .select()
     .single();
 
