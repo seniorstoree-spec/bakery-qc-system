@@ -61,7 +61,7 @@ async function buildArchiveSnapshot(reportDate:string,existing:Record<string,unk
     else if(isUsefulSection(key,legacyValue))merged[key]=legacyValue;
     else merged[key]=liveValue??existingValue??legacyValue??[];
   }
-  if(!Object.prototype.hasOwnProperty.call(merged,'ipcCompliance'))merged.ipcCompliance=mergeIpcRows(existing.ipcCompliance,liveIpc);
+  if(!Object.prototype.hasOwnProperty.call(merged,'ipcCompliance'))merged.ipcCompliance=mergeIpcRows((existing as Record<string,unknown>).ipcCompliance,liveIpc);
   return merged;
 }
 
