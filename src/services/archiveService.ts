@@ -21,9 +21,6 @@ const mapDailyReport = (row: any): DailyQualityReport => ({
   totalSections: row.total_sections ?? undefined,
 });
 
-const isMissingSchemaCacheTable = (error: any): boolean =>
-  error?.code === 'PGRST205' || /schema cache/i.test(error?.message ?? '') || /could not find the table/i.test(error?.message ?? '');
-
 const getAuthUserId = async (): Promise<string | null> => {
   const { data } = await supabase.auth.getUser();
   return data.user?.id ?? null;
@@ -169,8 +166,4 @@ export async function archiveReport(reportId?: string): Promise<DailyQualityRepo
 
   if (error) throw error;
   return mapDailyReport(data);
-}
-
-export function isArchiveSchemaCacheError(error: unknown): boolean {
-  return isMissingSchemaCacheTable(error);
 }
