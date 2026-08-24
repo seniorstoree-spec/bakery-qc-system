@@ -54,13 +54,9 @@ const AppShell:React.FC=()=>{
   const { setCurrentUserProfile } = useApp();
 
   const loadAuthProfile=async(userId:string)=>{
-    const { data, error } = await supabase.from('users').select('id,name,position,role,permissions,active,department').eq('auth_user_id',userId).eq('active',true).single();
-    if(error||!data){
-      await supabase.auth.signOut();
-      setAuthUserId(null);
-      throw new Error('حساب Auth غير مربوط بمستخدم نشط داخل النظام.');
-    }
-    setCurrentUserProfile(toUserProfile(data));
+    const { data, error } = await supabase.from('users').select('id,name,position,role,permissions,active,department').eq('auth_user_id',userId).eq('active',true).maybeSingle();
+    if(error) throw error;
+    if(data) setCurrentUserProfile(toUserProfile(data));
     setAuthUserId(userId);
     setLocalUserSession(false);
   };
@@ -72,7 +68,7 @@ const AppShell:React.FC=()=>{
         const current=await getCurrentAuthProfile();
         if(!mounted)return;
         if(current){
-          setCurrentUserProfile(toUserProfile(current.profile));
+          if(current.profile) setCurrentUserProfile(toUserProfile(current.profile));
           setAuthUserId(current.user.id);
           setLocalUserSession(false);
           const remote=await syncAdminConfigFromSupabase();
@@ -88,7 +84,9 @@ const AppShell:React.FC=()=>{
     const {data:{subscription}}=supabase.auth.onAuthStateChange((_event,session)=>{
       if(!mounted)return;
       if(session?.user){
-        void loadAuthProfile(session.user.id).catch(()=>undefined);
+        void loadAuthProfile(session.user.id).catch((error)=>console.warn('Auth profile sync failed',error));
+      } else {
+        setAuthUserId(null);
       }
     });
     return()=>{mounted=false;subscription.unsubscribe()};
