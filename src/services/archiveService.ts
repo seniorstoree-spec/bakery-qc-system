@@ -5,101 +5,18 @@ import type { DailyQualityReport } from '../types/dailyReport';
 
 export interface ArchiveMonth { year:number; month:number; monthName:string; reportCount:number; }
 export interface ArchivedReportDetails extends DailyQualityReport { reportSnapshot: Record<string, unknown>; }
-
 const monthNames=['يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'];
 const mapDailyReport=(row:any):DailyQualityReport=>({id:row.id,reportDate:row.report_date,status:row.status,createdBy:row.created_by??undefined,createdAt:row.created_at??undefined,closedAt:row.closed_at??undefined,sectionsCompleted:row.sections_completed??undefined,totalSections:row.total_sections??undefined});
 const mapArchivedReport=(row:any):ArchivedReportDetails=>({...mapDailyReport(row),reportSnapshot:row.report_snapshot&&typeof row.report_snapshot==='object'?row.report_snapshot:{}});
 const getLocalDate=()=>{try{return localStorage.getItem('bakery-qc-active-date')||new Date().toISOString().slice(0,10)}catch{return new Date().toISOString().slice(0,10)}};
-
-const isUsefulSection=(key:string,value:unknown)=>{
-  if(value===null||value===undefined)return false;
-  if(Array.isArray(value)){
-    if(value.length===0)return false;
-    if(key==='releaseForms')return value.some((row:any)=>Array.isArray(row?.products)&&row.products.length>0||row?.decision&&row.decision!=='pending'||row?.qaReleaseOfficerName||row?.storekeeperName);
-    if(key==='ipcCompliance')return value.some((row:any)=>row?.productName&&(row?.complianceStatus||row?.status));
-    if(key==='sanitationLogs')return value.some((row:any)=>Array.isArray(row?.items)&&row.items.length>0);
-    if(key==='foodSafetyLogs')return value.some((row:any)=>Array.isArray(row?.checks)&&row.checks.length>0);
-    return true;
-  }
-  return typeof value==='object'&&Object.keys(value as object).length>0;
-};
-
+const isUsefulSection=(key:string,value:unknown)=>{if(value===null||value===undefined)return false;if(Array.isArray(value)){if(value.length===0)return false;if(key==='releaseForms')return value.some((row:any)=>Array.isArray(row?.products)&&row.products.length>0||row?.decision&&row.decision!=='pending'||row?.qaReleaseOfficerName||row?.storekeeperName);if(key==='ipcCompliance')return value.some((row:any)=>row?.productName&&(row?.complianceStatus||row?.status));if(key==='sanitationLogs')return value.some((row:any)=>Array.isArray(row?.items)&&row.items.length>0);if(key==='foodSafetyLogs')return value.some((row:any)=>Array.isArray(row?.checks)&&row.checks.length>0);return true;}return typeof value==='object'&&Object.keys(value as object).length>0;};
 async function loadLiveSnapshot(reportDate:string):Promise<Record<string,unknown>>{try{return await loadAllQualityForms(reportDate) as Record<string,unknown>}catch{return {}}}
-
-const mergeIpcRows=(existing:unknown,live:unknown):Array<Record<string,unknown>>=>{
-  const rows=[...(Array.isArray(existing)?existing:[]),...(Array.isArray(live)?live:[])].filter((row):row is Record<string,unknown=>!!row&&typeof row==='object');
-  const map=new Map<string,Record<string,unknown>>();
-  for(const row of rows){
-    const productName=String(row.productName??row.product??'').trim();
-    if(!productName)continue;
-    const rawStatus=String(row.complianceStatus??row.status??'').toLowerCase();
-    const complianceStatus=rawStatus.includes('noncompliant')||rawStatus.includes('غير مطابق')?'noncompliant':rawStatus.includes('compliant')||rawStatus.includes('مطابق')?'compliant':'';
-    if(!complianceStatus)continue;
-    map.set(productName,{productName,status:complianceStatus==='compliant'?'مطابق ✓':'غير مطابق ×',complianceStatus,reason:complianceStatus==='noncompliant'?String(row.reason??''):'',savedAt:row.savedAt??row.saved_at??new Date().toISOString()});
-  }
-  return [...map.values()];
-};
-
-async function buildArchiveSnapshot(reportDate:string,existing:Record<string,unknown>={}):Promise<Record<string,unknown>>{
-  const live=await loadLiveSnapshot(reportDate);
-  const liveIpc=getIpcComplianceSnapshot(reportDate);
-  const merged:Record<string,unknown>={};
-  const keys=new Set([...Object.keys(existing),...Object.keys(live)]);
-  for(const key of keys){
-    const liveValue=live[key],existingValue=existing[key];
-    if(key==='ipcCompliance'){merged[key]=mergeIpcRows(existingValue,liveIpc.length?liveIpc:liveValue);continue;}
-    if(isUsefulSection(key,liveValue))merged[key]=liveValue;
-    else if(isUsefulSection(key,existingValue))merged[key]=existingValue;
-    else if(key in live)merged[key]=[];
-  }
-  const ipc=mergeIpcRows(existing.ipcCompliance,liveIpc);
-  if(ipc.length)merged.ipcCompliance=ipc;
-  else delete merged.ipcCompliance;
-  return merged;
-}
-
-function normalizeArchivedSnapshot(snapshot:Record<string,unknown>):Record<string,unknown>{
-  const normalized={...snapshot};
-  if(Array.isArray(normalized.ipcCompliance))normalized.ipcCompliance=mergeIpcRows(normalized.ipcCompliance,[]);
-  return normalized;
-}
-
-export async function getOrCreateDailyReport(reportDate:string):Promise<DailyQualityReport>{
-  const {data:existing,error:findError}=await supabase.from('daily_quality_reports').select('*').eq('report_date',reportDate).eq('department','bakery').maybeSingle();
-  if(findError)throw findError;if(existing)return mapDailyReport(existing);
-  const {data:{user}}=await supabase.auth.getUser();
-  const {data:created,error:createError}=await supabase.from('daily_quality_reports').insert({report_date:reportDate,department:'bakery',status:'open',created_by:user?.id??null,total_sections:8}).select().single();
-  if(createError){if(createError.code==='23505'){const{data:concurrent}=await supabase.from('daily_quality_reports').select('*').eq('report_date',reportDate).eq('department','bakery').single();if(concurrent)return mapDailyReport(concurrent)}throw createError}
-  return mapDailyReport(created);
-}
-
-export async function listArchiveMonths():Promise<ArchiveMonth[]>{
-  const{data,error}=await supabase.from('daily_quality_reports').select('report_date').eq('department','bakery').eq('status','archived').order('report_date',{ascending:false});if(error)throw error;
-  const map=new Map<string,ArchiveMonth>();for(const row of data??[]){if(!row.report_date)continue;const[year,month]=String(row.report_date).split('-').map(Number);const key=`${year}-${month}`;const current=map.get(key);if(current)current.reportCount++;else map.set(key,{year,month,monthName:monthNames[month-1]??String(month),reportCount:1})}
-  return[...map.values()].sort((a,b)=>b.year-a.year||b.month-a.month);
-}
-
-export async function listArchiveReports(year:number,month:number):Promise<ArchivedReportDetails[]>{
-  const start=`${year}-${String(month).padStart(2,'0')}-01`;const next=new Date(year,month,1);const end=`${next.getFullYear()}-${String(next.getMonth()+1).padStart(2,'0')}-01`;
-  const{data,error}=await supabase.from('daily_quality_reports').select('id,report_date,department,status,created_by,created_at,closed_at,sections_completed,total_sections,report_snapshot').eq('department','bakery').eq('status','archived').gte('report_date',start).lt('report_date',end).order('report_date',{ascending:false});if(error)throw error;
-  return(data??[]).map(row=>mapArchivedReport(row));
-}
-
-export async function getArchiveReport(reportId:string):Promise<ArchivedReportDetails>{
-  const{data,error}=await supabase.from('daily_quality_reports').select('*').eq('id',reportId).eq('department','bakery').single();if(error)throw error;const mapped=mapArchivedReport(data);
-  return{...mapped,reportSnapshot:normalizeArchivedSnapshot(mapped.reportSnapshot)};
-}
-
-export async function saveArchiveReport(reportId:string,patch:Partial<DailyQualityReport>):Promise<ArchivedReportDetails>{
-  const current=await getArchiveReport(reportId);const reportDate=patch.reportDate??current.reportDate;const dbPatch:Record<string,unknown>={report_date:reportDate};
-  if(patch.status!==undefined)dbPatch.status=patch.status;if(patch.closedAt!==undefined)dbPatch.closed_at=patch.closedAt;if(patch.sectionsCompleted!==undefined)dbPatch.sections_completed=patch.sectionsCompleted;if(patch.totalSections!==undefined)dbPatch.total_sections=patch.totalSections;
-  dbPatch.report_snapshot=await buildArchiveSnapshot(reportDate,current.reportSnapshot);
-  const{data,error}=await supabase.from('daily_quality_reports').update(dbPatch).eq('id',reportId).eq('department','bakery').select().single();if(error)throw error;return mapArchivedReport(data);
-}
-
-export async function archiveReport(reportId?:string):Promise<ArchivedReportDetails>{
-  const report:DailyQualityReport|ArchivedReportDetails=reportId?await getArchiveReport(reportId):await getOrCreateDailyReport(getLocalDate());
-  const existingSnapshot:Record<string,unknown>=reportId?(report as ArchivedReportDetails).reportSnapshot:{};
-  const snapshot=await buildArchiveSnapshot(report.reportDate,existingSnapshot);const archivedAt=new Date().toISOString();
-  const{data,error}=await supabase.from('daily_quality_reports').update({status:'archived',closed_at:archivedAt,archived_at:archivedAt,report_snapshot:snapshot}).eq('id',report.id).eq('department','bakery').select().single();if(error)throw error;return mapArchivedReport(data);
-}
+const mergeIpcRows=(existing:unknown,live:unknown):Array<Record<string,unknown>>=>{const rows=[...(Array.isArray(existing)?existing:[]),...(Array.isArray(live)?live:[])].filter((row):row is Record<string,unknown>=>!!row&&typeof row==='object');const map=new Map<string,Record<string,unknown>>();for(const row of rows){const productName=String(row.productName??row.product??'').trim();if(!productName)continue;const rawStatus=String(row.complianceStatus??row.status??'').toLowerCase();const complianceStatus=rawStatus.includes('noncompliant')||rawStatus.includes('غير مطابق')?'noncompliant':rawStatus.includes('compliant')||rawStatus.includes('مطابق')?'compliant':'';if(!complianceStatus)continue;map.set(productName,{productName,status:complianceStatus==='compliant'?'مطابق ✓':'غير مطابق ×',complianceStatus,reason:complianceStatus==='noncompliant'?String(row.reason??''):'',savedAt:row.savedAt??row.saved_at??new Date().toISOString()});}return[...map.values()];};
+async function buildArchiveSnapshot(reportDate:string,existing:Record<string,unknown>={}):Promise<Record<string,unknown>>{const live=await loadLiveSnapshot(reportDate);const liveIpc=getIpcComplianceSnapshot(reportDate);const merged:Record<string,unknown>={};for(const key of new Set([...Object.keys(existing),...Object.keys(live)])){const liveValue=live[key],existingValue=existing[key];if(key==='ipcCompliance'){const ipc=mergeIpcRows(existingValue,liveIpc.length?liveIpc:liveValue);if(ipc.length)merged[key]=ipc;continue;}if(isUsefulSection(key,liveValue))merged[key]=liveValue;else if(isUsefulSection(key,existingValue))merged[key]=existingValue;}const ipc=mergeIpcRows(existing.ipcCompliance,liveIpc);if(ipc.length)merged.ipcCompliance=ipc;else delete merged.ipcCompliance;return merged;}
+function normalizeArchivedSnapshot(snapshot:Record<string,unknown>):Record<string,unknown>{const normalized={...snapshot};if(Array.isArray(normalized.ipcCompliance))normalized.ipcCompliance=mergeIpcRows(normalized.ipcCompliance,[]);return normalized;}
+export async function getOrCreateDailyReport(reportDate:string):Promise<DailyQualityReport>{const{data:existing,error:findError}=await supabase.from('daily_quality_reports').select('*').eq('report_date',reportDate).eq('department','bakery').maybeSingle();if(findError)throw findError;if(existing)return mapDailyReport(existing);const{data:{user}}=await supabase.auth.getUser();const{data:created,error:createError}=await supabase.from('daily_quality_reports').insert({report_date:reportDate,department:'bakery',status:'open',created_by:user?.id??null,total_sections:8}).select().single();if(createError){if(createError.code==='23505'){const{data:concurrent}=await supabase.from('daily_quality_reports').select('*').eq('report_date',reportDate).eq('department','bakery').single();if(concurrent)return mapDailyReport(concurrent);}throw createError;}return mapDailyReport(created);}
+export async function listArchiveMonths():Promise<ArchiveMonth[]>{const{data,error}=await supabase.from('daily_quality_reports').select('report_date').eq('department','bakery').eq('status','archived').order('report_date',{ascending:false});if(error)throw error;const map=new Map<string,ArchiveMonth>();for(const row of data??[]){if(!row.report_date)continue;const[year,month]=String(row.report_date).split('-').map(Number);const key=`${year}-${month}`;const current=map.get(key);if(current)current.reportCount++;else map.set(key,{year,month,monthName:monthNames[month-1]??String(month),reportCount:1});}return[...map.values()].sort((a,b)=>b.year-a.year||b.month-a.month);}
+export async function listArchiveReports(year:number,month:number):Promise<ArchivedReportDetails[]>{const start=`${year}-${String(month).padStart(2,'0')}-01`;const next=new Date(year,month,1);const end=`${next.getFullYear()}-${String(next.getMonth()+1).padStart(2,'0')}-01`;const{data,error}=await supabase.from('daily_quality_reports').select('id,report_date,department,status,created_by,created_at,closed_at,sections_completed,total_sections,report_snapshot').eq('department','bakery').eq('status','archived').gte('report_date',start).lt('report_date',end).order('report_date',{ascending:false});if(error)throw error;return(data??[]).map(mapArchivedReport);}
+export async function getArchiveReport(reportId:string):Promise<ArchivedReportDetails>{const{data,error}=await supabase.from('daily_quality_reports').select('*').eq('id',reportId).eq('department','bakery').single();if(error)throw error;const mapped=mapArchivedReport(data);return{...mapped,reportSnapshot:normalizeArchivedSnapshot(mapped.reportSnapshot)};}
+export async function saveArchiveReport(reportId:string,patch:Partial<DailyQualityReport>):Promise<ArchivedReportDetails>{const current=await getArchiveReport(reportId);const reportDate=patch.reportDate??current.reportDate;const dbPatch:Record<string,unknown>={report_date:reportDate};if(patch.status!==undefined)dbPatch.status=patch.status;if(patch.closedAt!==undefined)dbPatch.closed_at=patch.closedAt;if(patch.sectionsCompleted!==undefined)dbPatch.sections_completed=patch.sectionsCompleted;if(patch.totalSections!==undefined)dbPatch.total_sections=patch.totalSections;dbPatch.report_snapshot=await buildArchiveSnapshot(reportDate,current.reportSnapshot);const{data,error}=await supabase.from('daily_quality_reports').update(dbPatch).eq('id',reportId).eq('department','bakery').select().single();if(error)throw error;return mapArchivedReport(data);}
+export async function archiveReport(reportId?:string):Promise<ArchivedReportDetails>{const report:DailyQualityReport|ArchivedReportDetails=reportId?await getArchiveReport(reportId):await getOrCreateDailyReport(getLocalDate());const existingSnapshot:Record<string,unknown>=reportId?(report as ArchivedReportDetails).reportSnapshot:{};const snapshot=await buildArchiveSnapshot(report.reportDate,existingSnapshot);const archivedAt=new Date().toISOString();const{data,error}=await supabase.from('daily_quality_reports').update({status:'archived',closed_at:archivedAt,archived_at:archivedAt,report_snapshot:snapshot}).eq('id',report.id).eq('department','bakery').select().single();if(error)throw error;return mapArchivedReport(data);}
