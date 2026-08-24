@@ -19,9 +19,30 @@ export async function getOrCreateDailyReport(reportDate:string):Promise<DailyQua
   return mapDailyReport(created);
 }
 
-export async function listArchiveMonths():Promise<ArchiveMonth[]>{const{data,error}=await supabase.from('daily_quality_reports').select('report_date').eq('department','bakery').eq('status','archived').order('report_date',{ascending:false});if(error)throw error;const map=new Map<string,ArchiveMonth>();for(const row of data??[]){if(!row.report_date)continue;const[year,month]=String(row.report_date).split('-').map(Number);const key=`${year}-${month}`;const current=map.get(key);if(current)current.reportCount++;else map.set(key,{year,month,monthName:monthNames[month-1]??String(month),reportCount:1});}return[...map.values()].sort((a,b)=>b.year-a.year||b.month-a.month);}
+export async function listArchiveMonths():Promise<ArchiveMonth[]>{
+  const{data,error}=await supabase.from('daily_quality_reports').select('report_date').eq('department','bakery').eq('status','archived').order('report_date',{ascending:false});
+  if(error)throw error;
+  const map=new Map<string,ArchiveMonth>();
+  for(const row of data??[]){if(!row.report_date)continue;const[year,month]=String(row.report_date).split('-').map(Number);const key=`${year}-${month}`;const current=map.get(key);if(current)current.reportCount++;else map.set(key,{year,month,monthName:monthNames[month-1]??String(month),reportCount:1});}
+  return[...map.values()].sort((a,b)=>b.year-a.year||b.month-a.month);
+}
 
-export async function listArchiveReports(year:number,month:number):Promise<ArchivedReportDetails[]>{const start=`${year}-${String(month).padStart(2,'0')}-01`;const next=new Date(year,month,1);const end=`${next.getFullYear()}-${String(next.getMonth()+1).padStart(2,'0')}-01`;const{data,error}=await supabase.from('daily_quality_reports').select('*').eq('department','bakery').eq('status','archived').gte('report_date',start).lt('report_date',end).order('report_date',{ascending:false});if(error)throw error;return(data??[]).map(mapArchivedReport);}
+/**
+ * List archive metadata only. Do NOT fetch report_snapshot here: archived
+ * snapshots can contain all records from all QC sections and may be large.
+ * The full snapshot is fetched only when the user opens one report.
+ */
+export async function listArchiveReports(year:number,month:number):Promise<ArchivedReportDetails[]>{
+  const start=`${year}-${String(month).padStart(2,'0')}-01`;
+  const next=new Date(year,month,1);
+  const end=`${next.getFullYear()}-${String(next.getMonth()+1).padStart(2,'0')}-01`;
+  const{data,error}=await supabase.from('daily_quality_reports')
+    .select('id,report_date,department,status,created_by,created_at,closed_at,sections_completed,total_sections')
+    .eq('department','bakery').eq('status','archived').gte('report_date',start).lt('report_date',end)
+    .order('report_date',{ascending:false});
+  if(error)throw error;
+  return(data??[]).map(row=>({...mapDailyReport(row),reportSnapshot:{}}));
+}
 
 export async function getArchiveReport(reportId:string):Promise<ArchivedReportDetails>{
   const{data,error}=await supabase.from('daily_quality_reports').select('*').eq('id',reportId).eq('department','bakery').single();
@@ -31,13 +52,6 @@ export async function getArchiveReport(reportId:string):Promise<ArchivedReportDe
   try{return{...mapped,reportSnapshot:await loadAllQualityForms(mapped.reportDate)}}catch{return mapped;}
 }
 
-/**
- * Save the report metadata AND refresh the immutable report snapshot from the
- * current database records. Previously this function only updated metadata,
- * so pressing "حفظ التعديل" could appear successful while the report data
- * remained unchanged. The snapshot is now rebuilt from the same date before
- * every save, including all time fields stored by the individual sections.
- */
 export async function saveArchiveReport(reportId:string,patch:Partial<DailyQualityReport>):Promise<ArchivedReportDetails>{
   const current=await getArchiveReport(reportId);
   const reportDate=patch.reportDate??current.reportDate;
