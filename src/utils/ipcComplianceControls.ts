@@ -51,7 +51,7 @@ const renderControls = (card: HTMLElement, key: string) => {
   if (!root) {
     root = document.createElement('div');
     root.dataset.ipcComplianceControls = 'true';
-    root.style.cssText = 'margin-top:16px;padding-top:14px;border-top:1px solid #e2e8f0;width:fit-content;max-width:100%;margin-left:auto;direction:ltr;';
+    root.style.cssText = 'margin-top:16px;padding-top:14px;border-top:1px solid #e2e8f0;width:fit-content;max-width:100%;margin-right:auto;margin-left:0;direction:ltr;';
     card.appendChild(root);
   }
 
