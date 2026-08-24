@@ -93,9 +93,14 @@ const AppShell:React.FC=()=>{
   },[]);
 
   const login=async(userId:string)=>{await loadAuthProfile(userId);const remote=await syncAdminConfigFromSupabase();if(remote)setConfig(remote)};
-  const loginManagedUser=async(user:ManagedUser)=>{setCurrentUserProfile(toManagedUserProfile(user));setLocalUserSession(true);setAuthUserId(`managed:${user.id}`)};
+  const loginManagedUser=async(user:ManagedUser)=>{
+    const {data:{session}}=await supabase.auth.getSession();
+    if(!session?.user) throw new Error('يجب تسجيل الدخول بحساب المطور أولاً. بعد الدخول يمكن اختيار المستخدم والصلاحيات من داخل النظام.');
+    setCurrentUserProfile(toManagedUserProfile(user));
+    setLocalUserSession(false);
+    setAuthUserId(session.user.id);
+  };
   const logout=async()=>{
-    if(localUserSession){setLocalUserSession(false);setAuthUserId(null);return;}
     try{await signOutSupabase()}finally{setAuthUserId(null);setLocalUserSession(false)}
   };
 
