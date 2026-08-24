@@ -26,7 +26,7 @@ const findRecipeCard = (heading: HTMLElement): HTMLElement | null => {
   return heading.parentElement;
 };
 
-const makeSquare = (active: boolean, type: 'check' | 'cross') => {
+const createSquare = (active: boolean, type: 'check' | 'cross') => {
   const box = document.createElement('span');
   box.style.cssText = [
     'width:22px','height:22px','min-width:22px','border:2px solid',
@@ -37,6 +37,7 @@ const makeSquare = (active: boolean, type: 'check' | 'cross') => {
     active ? (type === 'check' ? 'background:#ecfdf5' : 'background:#fff1f2') : 'background:#fff'
   ].join(';');
   box.textContent = active ? (type === 'check' ? '✓' : '×') : '';
+  box.setAttribute('aria-hidden', 'true');
   return box;
 };
 
@@ -55,7 +56,20 @@ const renderControls = (card: HTMLElement, key: string) => {
     card.appendChild(root);
   }
 
+  // Important: do not rebuild the controls when only page DOM mutations happen.
+  // Rebuilding replaces the button nodes and can swallow clicks.
+  const currentStatus = root.dataset.status || '';
+  const currentReason = root.querySelector<HTMLTextAreaElement>('textarea[data-ipc-reason="true"]')?.value || '';
+  if (currentStatus === (state.status || '') &&
+      (state.status !== 'noncompliant' || currentReason === state.reason) &&
+      root.querySelector('[data-ipc-option="compliant"]') &&
+      root.querySelector('[data-ipc-option="noncompliant"]')) {
+    return;
+  }
+
   root.innerHTML = '';
+  root.dataset.status = state.status || '';
+
   const panel = document.createElement('div');
   panel.style.cssText = 'display:flex;flex-direction:column;align-items:flex-start;gap:8px;width:100%;direction:rtl;';
 
@@ -67,30 +81,32 @@ const renderControls = (card: HTMLElement, key: string) => {
   const row = document.createElement('div');
   row.style.cssText = 'display:flex;align-items:center;gap:18px;flex-wrap:wrap;';
 
-  const makeOption = (label: string, type: 'check' | 'cross', active: boolean, onClick: () => void) => {
+  const makeOption = (label: string, type: 'check' | 'cross', active: boolean, status: 'compliant' | 'noncompliant') => {
     const button = document.createElement('button');
     button.type = 'button';
+    button.dataset.ipcOption = status;
     button.title = label;
-    button.style.cssText = 'display:inline-flex;align-items:center;gap:7px;border:0;background:transparent;padding:3px 0;cursor:pointer;font-size:13px;font-weight:800;color:#334155;font-family:inherit;';
+    button.style.cssText = 'display:inline-flex;align-items:center;gap:7px;border:0;background:transparent;padding:3px 0;cursor:pointer;font-size:13px;font-weight:800;color:#334155;font-family:inherit;position:relative;z-index:20;pointer-events:auto;user-select:none;';
     button.appendChild(document.createTextNode(label));
-    button.appendChild(makeSquare(active, type));
-    button.addEventListener('click', onClick);
+    button.appendChild(createSquare(active, type));
+    button.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      const next: ComplianceState = status === 'compliant'
+        ? { status: 'compliant', reason: '' }
+        : { status: 'noncompliant', reason: states.get(key)?.reason || '' };
+      states.set(key, next);
+      renderControls(card, key);
+    });
     return button;
   };
 
-  row.appendChild(makeOption('مطابق', 'check', state.status === 'compliant', () => {
-    states.set(key, { status: 'compliant', reason: '' });
-    renderControls(card, key);
-  }));
-
-  row.appendChild(makeOption('غير مطابق', 'cross', state.status === 'noncompliant', () => {
-    states.set(key, { status: 'noncompliant', reason: states.get(key)?.reason || '' });
-    renderControls(card, key);
-  }));
-
+  row.appendChild(makeOption('مطابق', 'check', state.status === 'compliant', 'compliant'));
+  row.appendChild(makeOption('غير مطابق', 'cross', state.status === 'noncompliant', 'noncompliant'));
   panel.appendChild(row);
 
   const reason = document.createElement('textarea');
+  reason.dataset.ipcReason = 'true';
   reason.rows = 2;
   reason.placeholder = 'اكتب سبب عدم المطابقة...';
   reason.value = state.status === 'noncompliant' ? state.reason : '';
@@ -98,15 +114,15 @@ const renderControls = (card: HTMLElement, key: string) => {
   reason.style.cssText = [
     'width:360px','max-width:100%','min-height:64px','resize:vertical',
     'padding:9px 11px','border:1px solid #cbd5e1','border-radius:9px','font-size:12px',
-    'font-family:inherit','direction:rtl','outline:none',
+    'font-family:inherit','direction:rtl','outline:none','position:relative','z-index:20',
     reason.disabled ? 'background:#f1f5f9;color:#94a3b8;cursor:not-allowed' : 'background:#fff;color:#0f172a;cursor:text'
   ].join(';');
   reason.addEventListener('input', () => {
     const current = states.get(key) || { status: 'noncompliant' as const, reason: '' };
     states.set(key, { status: current.status, reason: reason.value });
+    root!.dataset.status = current.status || '';
   });
   panel.appendChild(reason);
-
   root.appendChild(panel);
 };
 
@@ -134,5 +150,3 @@ export const installIpcComplianceControls = () => {
   if (document.body) observer.observe(document.body, { childList: true, subtree: true });
   scheduleScan();
 };
-
-// Force a fresh Git integration deployment for the latest IPC UI changes.
