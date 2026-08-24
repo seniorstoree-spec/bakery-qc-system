@@ -28,12 +28,30 @@ export async function getArchiveReport(reportId:string):Promise<ArchivedReportDe
   if(error)throw error;
   const mapped=mapArchivedReport(data);
   if(Object.keys(mapped.reportSnapshot).length>0)return mapped;
-  // Older archived rows may have been archived before report_snapshot existed.
-  // Rehydrate the date so the report remains openable instead of showing an empty shell.
   try{return{...mapped,reportSnapshot:await loadAllQualityForms(mapped.reportDate)}}catch{return mapped;}
 }
 
-export async function saveArchiveReport(reportId:string,patch:Partial<DailyQualityReport>):Promise<DailyQualityReport>{const dbPatch:Record<string,unknown>={};if(patch.reportDate!==undefined)dbPatch.report_date=patch.reportDate;if(patch.status!==undefined)dbPatch.status=patch.status;if(patch.closedAt!==undefined)dbPatch.closed_at=patch.closedAt;if(patch.sectionsCompleted!==undefined)dbPatch.sections_completed=patch.sectionsCompleted;if(patch.totalSections!==undefined)dbPatch.total_sections=patch.totalSections;const{data,error}=await supabase.from('daily_quality_reports').update(dbPatch).eq('id',reportId).eq('department','bakery').select().single();if(error)throw error;return mapDailyReport(data);}
+/**
+ * Save the report metadata AND refresh the immutable report snapshot from the
+ * current database records. Previously this function only updated metadata,
+ * so pressing "حفظ التعديل" could appear successful while the report data
+ * remained unchanged. The snapshot is now rebuilt from the same date before
+ * every save, including all time fields stored by the individual sections.
+ */
+export async function saveArchiveReport(reportId:string,patch:Partial<DailyQualityReport>):Promise<ArchivedReportDetails>{
+  const current=await getArchiveReport(reportId);
+  const reportDate=patch.reportDate??current.reportDate;
+  const dbPatch:Record<string,unknown>={report_date:reportDate};
+  if(patch.status!==undefined)dbPatch.status=patch.status;
+  if(patch.closedAt!==undefined)dbPatch.closed_at=patch.closedAt;
+  if(patch.sectionsCompleted!==undefined)dbPatch.sections_completed=patch.sectionsCompleted;
+  if(patch.totalSections!==undefined)dbPatch.total_sections=patch.totalSections;
+  const snapshot=await loadAllQualityForms(reportDate);
+  dbPatch.report_snapshot=snapshot;
+  const{data,error}=await supabase.from('daily_quality_reports').update(dbPatch).eq('id',reportId).eq('department','bakery').select().single();
+  if(error)throw error;
+  return mapArchivedReport(data);
+}
 
 export async function archiveReport(reportId?:string):Promise<ArchivedReportDetails>{
   const report=reportId?await getArchiveReport(reportId):await getOrCreateDailyReport(getLocalDate());
