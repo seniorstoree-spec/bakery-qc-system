@@ -20,6 +20,15 @@ import { getCurrentAuthProfile, signOutSupabase } from './lib/authService';
 import { UserProfile } from './types';
 import { withRolePermissions } from './admin/rbac';
 
+const clearLegacyRuntimeStorage=()=>{
+  try{
+    const keep=new Set(['admin_config_v1','bakery_qc_admin_config_v1','bakery_theme','bakery-qc-supabase-auth']);
+    const keys=Object.keys(localStorage);
+    keys.forEach(key=>{if(!keep.has(key))localStorage.removeItem(key)});
+    sessionStorage.clear();
+  }catch(error){console.warn('Legacy browser storage cleanup failed',error)}
+};
+
 const toUserProfile = (data: any): UserProfile => {
   const roleMap: Record<string, UserProfile['role']> = { quality_engineer:'quality_engineer', production_supervisor:'production_supervisor', quality_supervisor:'production_supervisor', quality_manager:'quality_manager', department_head:'quality_manager', senior_quality:'quality_engineer', Developer:'system_admin', developer:'system_admin', system_admin:'system_admin' };
   const role = roleMap[data.role] || roleMap[data.position] || 'quality_engineer';
@@ -49,7 +58,6 @@ const MainLayout: React.FC<{ config: AdminConfig; onConfigChange:(next:AdminConf
 const AppShell:React.FC=()=>{
   const [config,setConfig]=useState<AdminConfig>(()=>loadAdminConfig());
   const [authUserId,setAuthUserId]=useState<string|null>(null);
-  const [localUserSession,setLocalUserSession]=useState(false);
   const [booting,setBooting]=useState(true);
   const { setCurrentUserProfile } = useApp();
 
@@ -58,7 +66,6 @@ const AppShell:React.FC=()=>{
     if(error) throw error;
     if(data) setCurrentUserProfile(toUserProfile(data));
     setAuthUserId(userId);
-    setLocalUserSession(false);
   };
 
   useEffect(()=>{
@@ -70,7 +77,6 @@ const AppShell:React.FC=()=>{
         if(current){
           if(current.profile) setCurrentUserProfile(toUserProfile(current.profile));
           setAuthUserId(current.user.id);
-          setLocalUserSession(false);
           const remote=await syncAdminConfigFromSupabase();
           if(mounted&&remote)setConfig(remote);
         }
@@ -85,9 +91,7 @@ const AppShell:React.FC=()=>{
       if(!mounted)return;
       if(session?.user){
         void loadAuthProfile(session.user.id).catch((error)=>console.warn('Auth profile sync failed',error));
-      } else {
-        setAuthUserId(null);
-      }
+      } else setAuthUserId(null);
     });
     return()=>{mounted=false;subscription.unsubscribe()};
   },[]);
@@ -97,15 +101,13 @@ const AppShell:React.FC=()=>{
     const {data:{session}}=await supabase.auth.getSession();
     if(!session?.user) throw new Error('يجب تسجيل الدخول بحساب المطور أولاً. بعد الدخول يمكن اختيار المستخدم والصلاحيات من داخل النظام.');
     setCurrentUserProfile(toManagedUserProfile(user));
-    setLocalUserSession(false);
     setAuthUserId(session.user.id);
   };
-  const logout=async()=>{
-    try{await signOutSupabase()}finally{setAuthUserId(null);setLocalUserSession(false)}
-  };
+  const logout=async()=>{try{await signOutSupabase()}finally{setAuthUserId(null)}};
 
   if(booting)return <div dir="rtl" className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950 text-slate-600">جارٍ التحقق من جلسة الدخول...</div>;
   if(!authUserId)return <SupabaseLoginScreen config={config} onLogin={login} onUserLogin={loginManagedUser}/>;
   return <MainLayout config={config} onConfigChange={setConfig} onLogout={logout}/>;
 };
-export default function App(){return <AppProvider><AppShell/></AppProvider>}
+
+export default function App(){clearLegacyRuntimeStorage();return <AppProvider><AppShell/></AppProvider>}
