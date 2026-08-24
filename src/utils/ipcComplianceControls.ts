@@ -29,18 +29,10 @@ const findRecipeCard = (heading: HTMLElement): HTMLElement | null => {
 const makeSquare = (active: boolean, type: 'check' | 'cross') => {
   const box = document.createElement('span');
   box.style.cssText = [
-    'width:22px',
-    'height:22px',
-    'min-width:22px',
-    'border:2px solid',
+    'width:22px','height:22px','min-width:22px','border:2px solid',
     active ? (type === 'check' ? '#059669' : '#e11d48') : '#94a3b8',
-    'border-radius:5px',
-    'display:inline-flex',
-    'align-items:center',
-    'justify-content:center',
-    'font-weight:900',
-    'font-size:14px',
-    'line-height:1',
+    'border-radius:5px','display:inline-flex','align-items:center',
+    'justify-content:center','font-weight:900','font-size:14px','line-height:1',
     'box-sizing:border-box',
     active ? (type === 'check' ? 'background:#ecfdf5' : 'background:#fff1f2') : 'background:#fff'
   ].join(';');
@@ -57,28 +49,15 @@ const renderControls = (card: HTMLElement, key: string) => {
     root = document.createElement('div');
     root.dataset.ipcComplianceControls = 'true';
     root.style.cssText = [
-      'margin-top:14px',
-      'padding-top:12px',
-      'border-top:1px solid #e2e8f0',
-      'width:100%',
-      'direction:rtl',
-      'display:flex',
-      'justify-content:flex-start'
+      'margin-top:14px','padding-top:12px','border-top:1px solid #e2e8f0',
+      'width:100%','direction:rtl','display:flex','justify-content:flex-start'
     ].join(';');
     card.appendChild(root);
   }
 
   root.innerHTML = '';
-
   const panel = document.createElement('div');
-  panel.style.cssText = [
-    'display:flex',
-    'flex-direction:column',
-    'align-items:flex-start',
-    'gap:8px',
-    'width:100%',
-    'direction:rtl'
-  ].join(';');
+  panel.style.cssText = 'display:flex;flex-direction:column;align-items:flex-start;gap:8px;width:100%;direction:rtl;';
 
   const title = document.createElement('div');
   title.textContent = 'حالة المطابقة للصنف';
@@ -92,19 +71,7 @@ const renderControls = (card: HTMLElement, key: string) => {
     const button = document.createElement('button');
     button.type = 'button';
     button.title = label;
-    button.style.cssText = [
-      'display:inline-flex',
-      'align-items:center',
-      'gap:7px',
-      'border:0',
-      'background:transparent',
-      'padding:3px 0',
-      'cursor:pointer',
-      'font-size:13px',
-      'font-weight:800',
-      'color:#334155',
-      'font-family:inherit'
-    ].join(';');
+    button.style.cssText = 'display:inline-flex;align-items:center;gap:7px;border:0;background:transparent;padding:3px 0;cursor:pointer;font-size:13px;font-weight:800;color:#334155;font-family:inherit;';
     button.appendChild(document.createTextNode(label));
     button.appendChild(makeSquare(active, type));
     button.addEventListener('click', onClick);
@@ -129,17 +96,9 @@ const renderControls = (card: HTMLElement, key: string) => {
   reason.value = state.status === 'noncompliant' ? state.reason : '';
   reason.disabled = state.status !== 'noncompliant';
   reason.style.cssText = [
-    'width:360px',
-    'max-width:100%',
-    'min-height:64px',
-    'resize:vertical',
-    'padding:9px 11px',
-    'border:1px solid #cbd5e1',
-    'border-radius:9px',
-    'font-size:12px',
-    'font-family:inherit',
-    'direction:rtl',
-    'outline:none',
+    'width:360px','max-width:100%','min-height:64px','resize:vertical',
+    'padding:9px 11px','border:1px solid #cbd5e1','border-radius:9px','font-size:12px',
+    'font-family:inherit','direction:rtl','outline:none',
     reason.disabled ? 'background:#f1f5f9;color:#94a3b8;cursor:not-allowed' : 'background:#fff;color:#0f172a;cursor:text'
   ].join(';');
   reason.addEventListener('input', () => {
@@ -175,3 +134,5 @@ export const installIpcComplianceControls = () => {
   if (document.body) observer.observe(document.body, { childList: true, subtree: true });
   scheduleScan();
 };
+
+// Force a fresh Git integration deployment for the latest IPC UI changes.
