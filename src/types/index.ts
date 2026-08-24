@@ -25,7 +25,7 @@ export interface RawMaterialRecipe {
   butter_kg?: number;
   pasteurized_eggs_kg?: number;
   powdered_milk_kg?: number;
-  sugar_gm?: number;
+  sugar_kg?: number;
   salt_gm?: number;
   yeast_gm?: number;
   improver_gm?: number;
@@ -44,7 +44,7 @@ export interface OperatingParametersLog { id: string; time: string; stage: 'knea
 export type ProductionStage = 'start'|'mid'|'end'|'unplanned';
 export interface DefectItemRow { id:string; date?:string; productName:string; bakerySection:1|2; stage:ProductionStage; time:string; requiredProductionQty:number; sampleSize:number; oversize:number; undersize:number; overweight:number; underweight:number; darkColor:number; lightColor:number; burntParts:number; deflatedProduct:number; gapsInPieces:number; dryProduct:number; doughyProduct:number; nonLaminated:number; bitterTaste:number; rancidTaste:number; fillingLeakage:number; excessFilling:number; insufficientFilling:number; noFilling:number; heavyTexture:number; lightTexture:number; excessGlaze:number; insufficientGlaze:number; surfaceSpots:number; surfacePeeling:number; surfaceCracks:number; foreignMatters:number; expiryDateDefect:number; sealingDefect:number; printingDefect:number; undesiredSmell:number; status:'compliant'|'warning'|'non_compliant'; criticalDeviation:boolean; notes?:string; }
 export interface CoreTemperatureRecord { id:string; sn:number; productName:string; time:string; machineCode:string; coreTemperature:number; isCompliant:boolean; responsiblePerson:string; correctiveAction?:string; verifiedBy?:string; date:string; bakerySection:1|2; }
-export interface MetalDetectorRecord { id:string; sn:number; time:string; machineCode:string; feStatus:'pass'|'fail'; nfeStatus:'pass'|'fail'; ssStatus:'pass'|'fail'; isCompliant:boolean; responsiblePerson:string; correctiveAction?:string; verifiedBy?:string; date:string; bakerySection?:1|2; }
+export interface MetalDetectorRecord { id:string; sn:number; time:string; machineCode:string; feStatus:'pass'|'fail'; nfeStatus:'pass'|'fail'; ssStatus:'pass'|'fail'; isCompliant:boolean; responsiblePerson:string; correctiveAction?:string; verifiedBy?:string; date:string; }
 export interface ElectricSieveRecord { id:string; sn:number; productName:string; time:string; isCompliant:boolean; responsiblePerson:string; correctiveAction?:string; sieveIntegrityCheck:'سليم وكفء'|'غير مطابق'; notes?:string; date:string; }
 export interface AdditiveWeightRecord { id:string; sn:number; productName:string; additiveName:string; batchNumber:string; time:string; actualWeight_gm:number; standardLimit_gm:number; isCompliant:boolean; responsiblePerson:string; correctiveAction?:string; verifiedBy?:string; date:string; }
 export interface SensoryEvaluationRecord { id:string; sn:number; productName:string; sampleType:'daily_product'|'new_sample'; isVegan:boolean; time:string; sampleNumber:string; colorScore:number; tasteScore:number; aromaScore:number; textureScore:number; overallImpressionScore:number; overallRating:'مرفوض'|'مقبول'|'جيد'|'جيد جداً'|'ممتاز'; inspectorName:string; headOfSensoryName:string; notes?:string; date:string; }
