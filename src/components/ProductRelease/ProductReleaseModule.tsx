@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
 import { HeaderBanner } from '../common/HeaderBanner';
 import { FileCheck, CheckCircle2, XCircle, Clock, Printer, ShieldCheck, Lock, Unlock, UserCheck, Package, AlertTriangle, Plus, Trash2, Edit2, Archive, Loader2 } from 'lucide-react';
-import { archiveReport } from '../../services/archiveService';
+import { archiveReport, getOrCreateDailyReport } from '../../services/archiveService';
 
 export const ProductReleaseModule: React.FC = () => {
   const { activeSection, releaseFormB1, updateReleaseFormB1, releaseFormB2, updateReleaseFormB2, currentUser, activeDate, kpi } = useApp();
@@ -49,16 +49,20 @@ export const ProductReleaseModule: React.FC = () => {
   };
 
   const handleArchiveReport = async () => {
-    if (!form.dailyReportId) {
-      setArchiveError('لا يوجد تقرير يومي مرتبط بهذا النموذج. افتح/أنشئ التقرير اليومي أولاً.');
-      setArchiveSuccess(false);
-      return;
-    }
     setArchiving(true);
     setArchiveError('');
     setArchiveSuccess(false);
     try {
-      await archiveReport(form.dailyReportId);
+      const dailyReport = form.dailyReportId
+        ? { id: form.dailyReportId }
+        : await getOrCreateDailyReport(activeDate);
+
+      await archiveReport(dailyReport.id);
+
+      if (!form.dailyReportId) {
+        updateForm({ dailyReportId: dailyReport.id });
+      }
+
       setArchiveSuccess(true);
     } catch (error: any) {
       setArchiveError(error?.message || 'تعذر تخزين التقرير في الأرشيف');
@@ -123,7 +127,7 @@ export const ProductReleaseModule: React.FC = () => {
         <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-3"><div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-2"><div className="font-bold text-slate-900 dark:text-white text-sm flex items-center gap-2"><Package className="w-4 h-4 text-blue-600"/><span>توقيع أمين المخزن / مسؤول التوزيع والتسليم</span></div><span className="text-xs text-slate-400 font-mono">Storekeeper</span></div><div className="space-y-1 text-xs"><div className="flex justify-between"><span className="text-slate-500">اسم المستلم:</span><strong className="text-slate-800 dark:text-slate-200">{form.storekeeperName}</strong></div><div className="flex justify-between"><span className="text-slate-500">توقيت الاستلام:</span><span className="font-mono text-slate-600 dark:text-slate-400">{form.storekeeperTimestamp||'بانتظار التسليم'}</span></div></div><div className="pt-2">{form.storekeeperTimestamp?<div className="p-3 rounded-xl bg-blue-50 text-blue-800 border border-blue-200 text-xs flex items-center gap-2 font-bold"><CheckCircle2 className="w-4 h-4 text-blue-600"/><span>تم استلام الكميات بنجاح بواسطة: {form.storekeeperName}</span></div>:<button onClick={handleStorekeeperSignOff} disabled={form.decision!=='approved'} className={`w-full py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition-all ${form.decision==='approved'?'bg-blue-600 hover:bg-blue-700 text-white shadow-md shadow-blue-600/20':'bg-slate-100 text-slate-400 cursor-not-allowed'}`}><Package className="w-4 h-4"/><span>تأكيد استلام التشغيلة للمستودعات</span></button>}</div></div>
       </div>
 
-      <div className="mt-2 border-t pt-6"><div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-emerald-200 dark:border-emerald-900 shadow-sm"><div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4"><div><div className="flex items-center gap-2 text-emerald-700 dark:text-emerald-300 font-extrabold"><Archive className="w-5 h-5"/><span>تخزين التقرير بالكامل في الأرشيف</span></div><p className="text-xs text-slate-500 mt-1">الزر متاح في آخر قسم لإقفال التقرير اليومي ونقله للأرشيف.</p></div><button onClick={handleArchiveReport} disabled={archiving||!form.dailyReportId} className="min-w-56 px-5 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold flex items-center justify-center gap-2 disabled:opacity-60">{archiving?<Loader2 className="w-4 h-4 animate-spin"/>:<Archive className="w-4 h-4"/>}<span>{archiving?'جارٍ التخزين...':'تخزين التقرير في الأرشيف'}</span></button></div>{!form.dailyReportId&&<div className="mt-3 text-xs text-rose-700 bg-rose-50 border border-rose-200 rounded-xl p-3">لا يوجد تقرير يومي مرتبط بهذا النموذج بعد.</div>}{form.dailyReportId&& !allConditionsMet&&<div className="mt-3 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-xl p-3">يفضل استكمال البنود الخمسة قبل التخزين النهائي للأرشيف.</div>}</div></div>
+      <div className="mt-2 border-t pt-6"><div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-emerald-200 dark:border-emerald-900 shadow-sm"><div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4"><div><div className="flex items-center gap-2 text-emerald-700 dark:text-emerald-300 font-extrabold"><Archive className="w-5 h-5"/><span>تخزين التقرير بالكامل في الأرشيف</span></div><p className="text-xs text-slate-500 mt-1">الزر متاح في آخر قسم لإقفال التقرير اليومي ونقله للأرشيف.</p></div><button onClick={handleArchiveReport} disabled={archiving} className="min-w-56 px-5 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold flex items-center justify-center gap-2 disabled:opacity-60">{archiving?<Loader2 className="w-4 h-4 animate-spin"/>:<Archive className="w-4 h-4"/>}<span>{archiving?'جارٍ التخزين...':'تخزين التقرير في الأرشيف'}</span></button></div>{!form.dailyReportId&&<div className="mt-3 text-xs text-slate-600 bg-slate-50 border border-slate-200 rounded-xl p-3">لم يتم ربط التقرير اليومي بالنموذج بعد؛ عند الضغط على التخزين سيتم إنشاء/استرجاع تقرير اليوم تلقائيًا ثم أرشفته.</div>}{form.dailyReportId&& !allConditionsMet&&<div className="mt-3 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-xl p-3">يفضل استكمال البنود الخمسة قبل التخزين النهائي للأرشيف.</div>}</div></div>
     </div>
   );
 };
