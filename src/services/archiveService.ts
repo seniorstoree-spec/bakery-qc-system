@@ -33,7 +33,7 @@ async function buildArchiveSnapshot(reportDate:string,existing:Record<string,unk
   const live=await loadLiveSnapshot(reportDate);
   const legacy=legacyRecoverySnapshot(reportDate);
   const ipcCompliance=getIpcComplianceSnapshot(reportDate);
-  const liveWithCompliance={...live, ...(ipcCompliance.length?{ipcCompliance}: {})};
+  const liveWithCompliance:Record<string,unknown>={...live, ...(ipcCompliance.length?{ipcCompliance}: {})};
   const keys=new Set([...Object.keys(existing),...Object.keys(liveWithCompliance),...Object.keys(legacy)]);
   const merged:Record<string,unknown>={};
   for(const key of keys){
