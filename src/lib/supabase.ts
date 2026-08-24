@@ -1,12 +1,15 @@
 import { createClient } from '@supabase/supabase-js';
 
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || 'https://xvnknchehhuslbgrpytl.supabase.co';
-const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_XaCTMBlPfNsLSAIbER3wkw_KAWNRDkL';
+// Production project is fixed intentionally. Vercel environment variables must not
+// silently redirect the application to a different Supabase project.
+const SUPABASE_URL = 'https://xvnknchehhuslbgrpytl.supabase.co';
+const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_XaCTMBlPfNsLSAIbER3wkw_KAWNRDkL';
 
 export const supabase = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
   auth: {
     persistSession: true,
     autoRefreshToken: true,
     detectSessionInUrl: true,
+    storageKey: 'bakery-qc-supabase-auth',
   },
 });
