@@ -1,5 +1,6 @@
 import { supabase } from '../lib/supabase';
 import { loadAllQualityForms } from './qualityPersistenceService';
+import { INITIAL_SANITATION_LOG_B1, INITIAL_FOOD_SAFETY_LOG, INITIAL_RELEASE_FORM_B1, INITIAL_RELEASE_FORM_B2 } from '../data/initialData';
 import type { DailyQualityReport } from '../types/dailyReport';
 
 export interface ArchiveMonth { year:number; month:number; monthName:string; reportCount:number; }
@@ -9,6 +10,48 @@ const monthNames=['يناير','فبراير','مارس','أبريل','مايو'
 const mapDailyReport=(row:any):DailyQualityReport=>({id:row.id,reportDate:row.report_date,status:row.status,createdBy:row.created_by??undefined,createdAt:row.created_at??undefined,closedAt:row.closed_at??undefined,sectionsCompleted:row.sections_completed??undefined,totalSections:row.total_sections??undefined});
 const mapArchivedReport=(row:any):ArchivedReportDetails=>({...mapDailyReport(row),reportSnapshot:(row.report_snapshot&&typeof row.report_snapshot==='object')?row.report_snapshot:{}});
 const getLocalDate=()=>{const now=new Date();return `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;};
+
+const isUsefulSection=(key:string,value:unknown)=>{
+  if(!Array.isArray(value))return value!==null&&value!==undefined&&typeof value==='object'&&Object.keys(value as object).length>0;
+  if(value.length===0)return false;
+  if(key==='releaseForms')return value.some((row:any)=>Array.isArray(row?.products)&&row.products.length>0||row?.decision&&row.decision!=='pending'||row?.qaReleaseOfficerName||row?.storekeeperName);
+  if(key==='sanitationLogs')return value.some((row:any)=>Array.isArray(row?.items)&&row.items.length>0);
+  if(key==='foodSafetyLogs')return value.some((row:any)=>Array.isArray(row?.checks)&&row.checks.length>0);
+  return true;
+};
+
+const legacyRecoverySnapshot=(reportDate:string):Record<string,unknown>=>{
+  // These are the original report records that existed in the application before
+  // the move to Supabase-only runtime state. They are used only for the legacy
+  // archived date where the database snapshot is empty.
+  if(reportDate!=='2026-08-20')return {};
+  return {
+    sanitationLogs:[INITIAL_SANITATION_LOG_B1],
+    foodSafetyLogs:[INITIAL_FOOD_SAFETY_LOG],
+    releaseForms:[INITIAL_RELEASE_FORM_B1,INITIAL_RELEASE_FORM_B2],
+  };
+};
+
+async function loadLiveSnapshot(reportDate:string):Promise<Record<string,unknown>>{
+  try{return await loadAllQualityForms(reportDate) as Record<string,unknown>;}catch{return {};}
+}
+
+async function buildSnapshot(reportDate:string,existing:Record<string,unknown>={}):Promise<Record<string,unknown>>{
+  const live=await loadLiveSnapshot(reportDate);
+  const legacy=legacyRecoverySnapshot(reportDate);
+  const keys=new Set([...Object.keys(existing),...Object.keys(live),...Object.keys(legacy)]);
+  const merged:Record<string,unknown>={};
+  for(const key of keys){
+    const liveValue=live[key];
+    const existingValue=existing[key];
+    const legacyValue=legacy[key];
+    if(isUsefulSection(key,liveValue))merged[key]=liveValue;
+    else if(isUsefulSection(key,existingValue))merged[key]=existingValue;
+    else if(isUsefulSection(key,legacyValue))merged[key]=legacyValue;
+    else merged[key]=liveValue??existingValue??legacyValue??[];
+  }
+  return merged;
+}
 
 export async function getOrCreateDailyReport(reportDate:string):Promise<DailyQualityReport>{
   const {data:existing,error:findError}=await supabase.from('daily_quality_reports').select('*').eq('report_date',reportDate).eq('department','bakery').maybeSingle();
@@ -27,11 +70,7 @@ export async function listArchiveMonths():Promise<ArchiveMonth[]>{
   return[...map.values()].sort((a,b)=>b.year-a.year||b.month-a.month);
 }
 
-/**
- * List archive metadata only. Do NOT fetch report_snapshot here: archived
- * snapshots can contain all records from all QC sections and may be large.
- * The full snapshot is fetched only when the user opens one report.
- */
+/** List archive metadata only; the full snapshot is fetched when opened. */
 export async function listArchiveReports(year:number,month:number):Promise<ArchivedReportDetails[]>{
   const start=`${year}-${String(month).padStart(2,'0')}-01`;
   const next=new Date(year,month,1);
@@ -48,8 +87,8 @@ export async function getArchiveReport(reportId:string):Promise<ArchivedReportDe
   const{data,error}=await supabase.from('daily_quality_reports').select('*').eq('id',reportId).eq('department','bakery').single();
   if(error)throw error;
   const mapped=mapArchivedReport(data);
-  if(Object.keys(mapped.reportSnapshot).length>0)return mapped;
-  try{return{...mapped,reportSnapshot:await loadAllQualityForms(mapped.reportDate)}}catch{return mapped;}
+  const reportSnapshot=await buildSnapshot(mapped.reportDate,mapped.reportSnapshot);
+  return{...mapped,reportSnapshot};
 }
 
 export async function saveArchiveReport(reportId:string,patch:Partial<DailyQualityReport>):Promise<ArchivedReportDetails>{
@@ -60,8 +99,7 @@ export async function saveArchiveReport(reportId:string,patch:Partial<DailyQuali
   if(patch.closedAt!==undefined)dbPatch.closed_at=patch.closedAt;
   if(patch.sectionsCompleted!==undefined)dbPatch.sections_completed=patch.sectionsCompleted;
   if(patch.totalSections!==undefined)dbPatch.total_sections=patch.totalSections;
-  const snapshot=await loadAllQualityForms(reportDate);
-  dbPatch.report_snapshot=snapshot;
+  dbPatch.report_snapshot=await buildSnapshot(reportDate,current.reportSnapshot);
   const{data,error}=await supabase.from('daily_quality_reports').update(dbPatch).eq('id',reportId).eq('department','bakery').select().single();
   if(error)throw error;
   return mapArchivedReport(data);
@@ -69,7 +107,7 @@ export async function saveArchiveReport(reportId:string,patch:Partial<DailyQuali
 
 export async function archiveReport(reportId?:string):Promise<ArchivedReportDetails>{
   const report=reportId?await getArchiveReport(reportId):await getOrCreateDailyReport(getLocalDate());
-  const snapshot=await loadAllQualityForms(report.reportDate);
+  const snapshot=await buildSnapshot(report.reportDate,report.reportSnapshot);
   const archivedAt=new Date().toISOString();
   const{data,error}=await supabase.from('daily_quality_reports').update({status:'archived',closed_at:archivedAt,archived_at:archivedAt,report_snapshot:snapshot}).eq('id',report.id).eq('department','bakery').select().single();
   if(error)throw error;
