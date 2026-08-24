@@ -59,5 +59,7 @@ export async function saveArchiveReport(reportId:string,patch:Partial<DailyQuali
 }
 
 export async function archiveReport(reportId?:string):Promise<ArchivedReportDetails>{
-  const report=reportId?await getArchiveReport(reportId):await getOrCreateDailyReport(getLocalDate());const existingSnapshot='reportSnapshot' in report?report.reportSnapshot:{};const snapshot=await buildSnapshot(report.reportDate,existingSnapshot);const archivedAt=new Date().toISOString();const{data,error}=await supabase.from('daily_quality_reports').update({status:'archived',closed_at:archivedAt,archived_at:archivedAt,report_snapshot:snapshot}).eq('id',report.id).eq('department','bakery').select().single();if(error)throw error;return mapArchivedReport(data);
+  const report:DailyQualityReport|ArchivedReportDetails=reportId?await getArchiveReport(reportId):await getOrCreateDailyReport(getLocalDate());
+  const existingSnapshot:Record<string,unknown>=reportId?(report as ArchivedReportDetails).reportSnapshot:{};
+  const snapshot=await buildSnapshot(report.reportDate,existingSnapshot);const archivedAt=new Date().toISOString();const{data,error}=await supabase.from('daily_quality_reports').update({status:'archived',closed_at:archivedAt,archived_at:archivedAt,report_snapshot:snapshot}).eq('id',report.id).eq('department','bakery').select().single();if(error)throw error;return mapArchivedReport(data);
 }
