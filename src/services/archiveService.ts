@@ -1,7 +1,6 @@
 import { supabase } from '../lib/supabase';
 import { loadAllQualityForms } from './qualityPersistenceService';
 import { getIpcComplianceSnapshot } from '../utils/ipcComplianceControls';
-import { INITIAL_SANITATION_LOG_B1, INITIAL_FOOD_SAFETY_LOG, INITIAL_RELEASE_FORM_B1, INITIAL_RELEASE_FORM_B2 } from '../data/initialData';
 import type { DailyQualityReport } from '../types/dailyReport';
 
 export interface ArchiveMonth { year:number; month:number; monthName:string; reportCount:number; }
@@ -13,18 +12,9 @@ const mapArchivedReport=(row:any):ArchivedReportDetails=>({...mapDailyReport(row
 const getLocalDate=()=>{try{return localStorage.getItem('bakery-qc-active-date')||new Date().toISOString().slice(0,10)}catch{return new Date().toISOString().slice(0,10)}};
 
 const isUsefulSection=(key:string,value:unknown)=>{
-  if(!Array.isArray(value))return value!==null&&value!==undefined&&typeof value==='object'&&Object.keys(value as object).length>0;
-  if(value.length===0)return false;
-  if(key==='releaseForms')return value.some((row:any)=>Array.isArray(row?.products)&&row.products.length>0||row?.decision&&row.decision!=='pending'||row?.qaReleaseOfficerName||row?.storekeeperName);
-  if(key==='sanitationLogs')return value.some((row:any)=>Array.isArray(row?.items)&&row.items.length>0);
-  if(key==='foodSafetyLogs')return value.some((row:any)=>Array.isArray(row?.checks)&&row.checks.length>0);
-  if(key==='ipcCompliance')return value.some((row:any)=>row?.productName&&(row?.complianceStatus==='compliant'||row?.complianceStatus==='noncompliant'||row?.status==='compliant'||row?.status==='noncompliant'||typeof row?.status==='string'));
-  return true;
-};
-
-const legacyRecoverySnapshot=(reportDate:string):Record<string,unknown>=>{
-  if(reportDate!=='2026-08-20')return {};
-  return {sanitationLogs:[INITIAL_SANITATION_LOG_B1],foodSafetyLogs:[INITIAL_FOOD_SAFETY_LOG],releaseForms:[INITIAL_RELEASE_FORM_B1,INITIAL_RELEASE_FORM_B2]};
+  if(value===null||value===undefined)return false;
+  if(Array.isArray(value)){if(value.length===0)return false;if(key==='releaseForms')return value.some((row:any)=>Array.isArray(row?.products)&&row.products.length>0||row?.decision&&row.decision!=='pending'||row?.qaReleaseOfficerName||row?.storekeeperName);if(key==='sanitationLogs')return value.some((row:any)=>Array.isArray(row?.items)&&row.items.length>0);if(key==='foodSafetyLogs')return value.some((row:any)=>Array.isArray(row?.checks)&&row.checks.length>0);if(key==='ipcCompliance')return value.some((row:any)=>row?.productName&&(row?.complianceStatus==='compliant'||row?.complianceStatus==='noncompliant'||row?.status==='compliant'||row?.status==='noncompliant'||typeof row?.status==='string'));return true;}
+  return typeof value==='object'&&Object.keys(value as object).length>0;
 };
 
 async function loadLiveSnapshot(reportDate:string):Promise<Record<string,unknown>>{try{return await loadAllQualityForms(reportDate) as Record<string,unknown>}catch{return {}}}
@@ -38,39 +28,33 @@ const mergeIpcRows=(existing:unknown,live:unknown):Array<Record<string,unknown>>
     const rawStatus=String(row.complianceStatus??row.status??'').toLowerCase();
     const complianceStatus=rawStatus.includes('noncompliant')||rawStatus.includes('غير مطابق')?'noncompliant':rawStatus.includes('compliant')||rawStatus.includes('مطابق')?'compliant':'';
     if(!complianceStatus)continue;
-    map.set(productName,{productName,status:complianceStatus==='compliant'?'مطابق ✓':'غير مطابق ×',complianceStatus,reason:complianceStatus==='noncompliant'?String(row.reason??'لم يتم تسجيل سبب'):'',savedAt:row.savedAt??row.saved_at??new Date().toISOString()});
+    map.set(productName,{productName,status:complianceStatus==='compliant'?'مطابق ✓':'غير مطابق ×',complianceStatus,reason:complianceStatus==='noncompliant'?String(row.reason??''):'',savedAt:row.savedAt??row.saved_at??new Date().toISOString()});
   }
   return [...map.values()];
 };
 
 async function buildArchiveSnapshot(reportDate:string,existing:Record<string,unknown>={}):Promise<Record<string,unknown>>{
   const live=await loadLiveSnapshot(reportDate);
-  const legacy=legacyRecoverySnapshot(reportDate);
   const liveIpc=getIpcComplianceSnapshot(reportDate);
   const merged:Record<string,unknown>={};
-  const keys=new Set([...Object.keys(existing),...Object.keys(live),...Object.keys(legacy)]);
+  const keys=new Set([...Object.keys(existing),...Object.keys(live)]);
   for(const key of keys){
-    const liveValue=live[key],existingValue=existing[key],legacyValue=legacy[key];
-    if(key==='ipcCompliance'){
-      const ipc=mergeIpcRows(existingValue,liveIpc.length?liveIpc:liveValue);
-      merged[key]=ipc;
-      continue;
-    }
+    const liveValue=live[key],existingValue=existing[key];
+    if(key==='ipcCompliance'){merged[key]=mergeIpcRows(existingValue,liveIpc.length?liveIpc:liveValue);continue;}
+    // Prefer the live database-backed data. Only keep existing snapshot data when the live section has no useful records.
     if(isUsefulSection(key,liveValue))merged[key]=liveValue;
     else if(isUsefulSection(key,existingValue))merged[key]=existingValue;
-    else if(isUsefulSection(key,legacyValue))merged[key]=legacyValue;
-    else merged[key]=liveValue??existingValue??legacyValue??[];
+    else if(key in live)merged[key]=liveValue??[];
+    else if(key in existing)merged[key]=existingValue??[];
   }
-  if(!Object.prototype.hasOwnProperty.call(merged,'ipcCompliance'))merged.ipcCompliance=mergeIpcRows((existing as Record<string,unknown>).ipcCompliance,liveIpc);
+  if(!('ipcCompliance' in merged))merged.ipcCompliance=mergeIpcRows(undefined,liveIpc);
   return merged;
 }
 
-function normalizeArchivedSnapshot(reportDate:string,snapshot:Record<string,unknown>):Record<string,unknown>{
-  const hydrated={...snapshot};
-  const legacy=legacyRecoverySnapshot(reportDate);
-  for(const key of Object.keys(legacy)){if(!isUsefulSection(key,hydrated[key]))hydrated[key]=legacy[key];}
-  if(Array.isArray(hydrated.ipcCompliance))hydrated.ipcCompliance=mergeIpcRows(hydrated.ipcCompliance,[]);
-  return hydrated;
+function normalizeArchivedSnapshot(snapshot:Record<string,unknown>):Record<string,unknown>{
+  const normalized={...snapshot};
+  if(Array.isArray(normalized.ipcCompliance))normalized.ipcCompliance=mergeIpcRows(normalized.ipcCompliance,[]);
+  return normalized;
 }
 
 export async function getOrCreateDailyReport(reportDate:string):Promise<DailyQualityReport>{
@@ -96,7 +80,7 @@ export async function listArchiveReports(year:number,month:number):Promise<Archi
 
 export async function getArchiveReport(reportId:string):Promise<ArchivedReportDetails>{
   const{data,error}=await supabase.from('daily_quality_reports').select('*').eq('id',reportId).eq('department','bakery').single();if(error)throw error;const mapped=mapArchivedReport(data);
-  return{...mapped,reportSnapshot:normalizeArchivedSnapshot(mapped.reportDate,mapped.reportSnapshot)};
+  return{...mapped,reportSnapshot:normalizeArchivedSnapshot(mapped.reportSnapshot)};
 }
 
 export async function saveArchiveReport(reportId:string,patch:Partial<DailyQualityReport>):Promise<ArchivedReportDetails>{
