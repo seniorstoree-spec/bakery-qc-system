@@ -1,10 +1,10 @@
 import { supabase } from './supabase';
 
-const withTimeout = async <T,>(promise: Promise<T>, ms = 12000): Promise<T> => {
+const withTimeout = async <T,>(operation: PromiseLike<T>, ms = 12000): Promise<T> => {
   let timer: ReturnType<typeof setTimeout> | undefined;
   try {
     return await Promise.race([
-      promise,
+      Promise.resolve(operation),
       new Promise<T>((_, reject) => {
         timer = setTimeout(() => reject(new Error('انتهت مهلة الاتصال بخدمة تسجيل الدخول. تحقق من اتصال الإنترنت ثم أعد المحاولة.')), ms);
       }),
