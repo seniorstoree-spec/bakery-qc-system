@@ -1,5 +1,6 @@
 import { supabase } from '../lib/supabase';
 import { loadAllQualityForms } from './qualityPersistenceService';
+import { getIpcComplianceSnapshot } from '../utils/ipcComplianceControls';
 import { INITIAL_SANITATION_LOG_B1, INITIAL_FOOD_SAFETY_LOG, INITIAL_RELEASE_FORM_B1, INITIAL_RELEASE_FORM_B2 } from '../data/initialData';
 import type { DailyQualityReport } from '../types/dailyReport';
 
@@ -17,35 +18,26 @@ const isUsefulSection=(key:string,value:unknown)=>{
   if(key==='releaseForms')return value.some((row:any)=>Array.isArray(row?.products)&&row.products.length>0||row?.decision&&row.decision!=='pending'||row?.qaReleaseOfficerName||row?.storekeeperName);
   if(key==='sanitationLogs')return value.some((row:any)=>Array.isArray(row?.items)&&row.items.length>0);
   if(key==='foodSafetyLogs')return value.some((row:any)=>Array.isArray(row?.checks)&&row.checks.length>0);
+  if(key==='ipcCompliance')return value.some((row:any)=>row?.productName&&(row?.complianceStatus==='compliant'||row?.complianceStatus==='noncompliant'));
   return true;
 };
 
-// These are the legacy records that were part of the original report template.
-// They are used only to repair the archived report for 20-08-2026 where the
-// database snapshot contains empty sanitation, food-safety and release details.
 const legacyRecoverySnapshot=(reportDate:string):Record<string,unknown>=>{
   if(reportDate!=='2026-08-20')return {};
-  return {
-    sanitationLogs:[INITIAL_SANITATION_LOG_B1],
-    foodSafetyLogs:[INITIAL_FOOD_SAFETY_LOG],
-    releaseForms:[INITIAL_RELEASE_FORM_B1,INITIAL_RELEASE_FORM_B2]
-  };
+  return {sanitationLogs:[INITIAL_SANITATION_LOG_B1],foodSafetyLogs:[INITIAL_FOOD_SAFETY_LOG],releaseForms:[INITIAL_RELEASE_FORM_B1,INITIAL_RELEASE_FORM_B2]};
 };
 
-async function loadLiveSnapshot(reportDate:string):Promise<Record<string,unknown>>{
-  try{return await loadAllQualityForms(reportDate) as Record<string,unknown>;}catch{return {};}
-}
+async function loadLiveSnapshot(reportDate:string):Promise<Record<string,unknown>>{try{return await loadAllQualityForms(reportDate) as Record<string,unknown>;}catch{return {};}}
 
-// Used only when creating/updating the archive. The current form data is the
-// source of truth at the moment the report is archived; existing non-empty
-// snapshot sections are retained so a partial save cannot erase old data.
 async function buildArchiveSnapshot(reportDate:string,existing:Record<string,unknown>={}):Promise<Record<string,unknown>>{
   const live=await loadLiveSnapshot(reportDate);
   const legacy=legacyRecoverySnapshot(reportDate);
-  const keys=new Set([...Object.keys(existing),...Object.keys(live),...Object.keys(legacy)]);
+  const ipcCompliance=getIpcComplianceSnapshot(reportDate);
+  const liveWithCompliance={...live, ...(ipcCompliance.length?{ipcCompliance}: {})};
+  const keys=new Set([...Object.keys(existing),...Object.keys(liveWithCompliance),...Object.keys(legacy)]);
   const merged:Record<string,unknown>={};
   for(const key of keys){
-    const liveValue=live[key],existingValue=existing[key],legacyValue=legacy[key];
+    const liveValue=liveWithCompliance[key],existingValue=existing[key],legacyValue=legacy[key];
     if(isUsefulSection(key,liveValue))merged[key]=liveValue;
     else if(isUsefulSection(key,existingValue))merged[key]=existingValue;
     else if(isUsefulSection(key,legacyValue))merged[key]=legacyValue;
@@ -54,16 +46,9 @@ async function buildArchiveSnapshot(reportDate:string,existing:Record<string,unk
   return merged;
 }
 
-// Used when OPENING an archived report. The archived snapshot is authoritative
-// and must never be replaced by today's/current database rows. Only sections
-// that were not stored at all or are empty are recovered from the legacy source.
 function hydrateArchivedSnapshot(reportDate:string,snapshot:Record<string,unknown>):Record<string,unknown>{
-  const legacy=legacyRecoverySnapshot(reportDate);
-  if(!Object.keys(legacy).length)return snapshot;
-  const hydrated={...snapshot};
-  for(const key of Object.keys(legacy)){
-    if(!isUsefulSection(key,hydrated[key]))hydrated[key]=legacy[key];
-  }
+  const legacy=legacyRecoverySnapshot(reportDate);if(!Object.keys(legacy).length)return snapshot;const hydrated={...snapshot};
+  for(const key of Object.keys(legacy)){if(!isUsefulSection(key,hydrated[key]))hydrated[key]=legacy[key];}
   return hydrated;
 }
 
@@ -77,26 +62,19 @@ export async function getOrCreateDailyReport(reportDate:string):Promise<DailyQua
 }
 
 export async function listArchiveMonths():Promise<ArchiveMonth[]>{
-  const{data,error}=await supabase.from('daily_quality_reports').select('report_date').eq('department','bakery').eq('status','archived').order('report_date',{ascending:false});
-  if(error)throw error;
-  const map=new Map<string,ArchiveMonth>();
-  for(const row of data??[]){if(!row.report_date)continue;const[year,month]=String(row.report_date).split('-').map(Number);const key=`${year}-${month}`;const current=map.get(key);if(current)current.reportCount++;else map.set(key,{year,month,monthName:monthNames[month-1]??String(month),reportCount:1});}
+  const{data,error}=await supabase.from('daily_quality_reports').select('report_date').eq('department','bakery').eq('status','archived').order('report_date',{ascending:false});if(error)throw error;
+  const map=new Map<string,ArchiveMonth>();for(const row of data??[]){if(!row.report_date)continue;const[year,month]=String(row.report_date).split('-').map(Number);const key=`${year}-${month}`;const current=map.get(key);if(current)current.reportCount++;else map.set(key,{year,month,monthName:monthNames[month-1]??String(month),reportCount:1});}
   return[...map.values()].sort((a,b)=>b.year-a.year||b.month-a.month);
 }
 
 export async function listArchiveReports(year:number,month:number):Promise<ArchivedReportDetails[]>{
   const start=`${year}-${String(month).padStart(2,'0')}-01`;const next=new Date(year,month,1);const end=`${next.getFullYear()}-${String(next.getMonth()+1).padStart(2,'0')}-01`;
-  const{data,error}=await supabase.from('daily_quality_reports').select('id,report_date,department,status,created_by,created_at,closed_at,sections_completed,total_sections').eq('department','bakery').eq('status','archived').gte('report_date',start).lt('report_date',end).order('report_date',{ascending:false});
-  if(error)throw error;
+  const{data,error}=await supabase.from('daily_quality_reports').select('id,report_date,department,status,created_by,created_at,closed_at,sections_completed,total_sections').eq('department','bakery').eq('status','archived').gte('report_date',start).lt('report_date',end).order('report_date',{ascending:false});if(error)throw error;
   return(data??[]).map(row=>({...mapDailyReport(row),reportSnapshot:{}}));
 }
 
 export async function getArchiveReport(reportId:string):Promise<ArchivedReportDetails>{
-  const{data,error}=await supabase.from('daily_quality_reports').select('*').eq('id',reportId).eq('department','bakery').single();
-  if(error)throw error;
-  const mapped=mapArchivedReport(data);
-  // Never rebuild an archived report from current live forms. Use the snapshot
-  // captured on the archive date, then repair only known missing legacy sections.
+  const{data,error}=await supabase.from('daily_quality_reports').select('*').eq('id',reportId).eq('department','bakery').single();if(error)throw error;const mapped=mapArchivedReport(data);
   return{...mapped,reportSnapshot:hydrateArchivedSnapshot(mapped.reportDate,mapped.reportSnapshot)};
 }
 
