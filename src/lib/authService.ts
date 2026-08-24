@@ -15,17 +15,14 @@ const withTimeout = async <T,>(operation: PromiseLike<T>, ms = 12000): Promise<T
 };
 
 export async function getCurrentAuthProfile(){
-  // Do not block the first paint on a network getUser() call. The Supabase
-  // client already persists and refreshes the session locally.
   const { data: sessionData, error: sessionError } = await withTimeout(supabase.auth.getSession());
   if (sessionError) throw sessionError;
   const session = sessionData.session;
   if (!session?.user) return null;
-
   const { data: profile, error: profileError } = await withTimeout(
-    supabase.from('users').select('*').eq('auth_user_id', session.user.id).eq('active', true).maybeSingle()
+    supabase.from('users').select('id,name,position,role,permissions,active,auth_user_id').eq('auth_user_id', session.user.id).eq('active', true).maybeSingle()
   );
-  if (profileError) throw profileError;
+  if (profileError) throw new Error(`تعذر قراءة ملف المستخدم بعد التحقق من الجلسة: ${profileError.message}`);
   return { user: session.user, profile: profile ?? null };
 }
 
@@ -35,14 +32,14 @@ export async function signInWithSupabase(email:string,password:string){
   if(error){
     const raw=error.message||'';
     const lower=raw.toLowerCase();
-    if(lower.includes('invalid login credentials')) throw new Error('البريد الإلكتروني أو كلمة المرور غير صحيحة. استخدم «نسيت كلمة المرور» لإعادة تعيين كلمة المرور.');
+    if(lower.includes('invalid login credentials')) throw new Error('البريد الإلكتروني أو كلمة المرور غير صحيحة.');
     if(lower.includes('email not confirmed')) throw new Error('البريد الإلكتروني غير مؤكد في Supabase Auth.');
     throw new Error(raw||'تعذر الاتصال بخدمة تسجيل الدخول.');
   }
   if(!data.user)throw new Error('Supabase لم يُنشئ جلسة دخول.');
-  const {data:profile,error:profileError}=await withTimeout(supabase.from('users').select('*').eq('auth_user_id',data.user.id).eq('active',true).maybeSingle());
-  if(profileError)throw new Error(`تم تسجيل الدخول لكن تعذر قراءة ملف المطور: ${profileError.message}`);
-  if(!profile)throw new Error('تم تسجيل الدخول في Supabase Auth لكن لا يوجد مستخدم مطور نشط مرتبط بهذا الحساب.');
+  const {data:profile,error:profileError}=await withTimeout(supabase.from('users').select('id,name,position,role,permissions,active,auth_user_id').eq('auth_user_id',data.user.id).eq('active',true).maybeSingle());
+  if(profileError)throw new Error(`تم التحقق من كلمة المرور لكن تعذر قراءة حساب المطور: ${profileError.message}`);
+  if(!profile)throw new Error(`تم التحقق من كلمة المرور، لكن لا يوجد سجل نشط مرتبط بحساب Auth هذا. Auth user id: ${data.user.id}`);
   return {user:data.user,profile};
 }
 
