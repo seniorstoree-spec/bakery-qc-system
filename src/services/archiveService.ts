@@ -26,6 +26,14 @@ const getAuthUserId = async (): Promise<string | null> => {
   return data.user?.id ?? null;
 };
 
+const getLocalDate = (): string => {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
 export async function getOrCreateDailyReport(reportDate: string): Promise<DailyQualityReport> {
   const { data: existing, error: findError } = await supabase
     .from('daily_quality_reports')
@@ -140,15 +148,18 @@ export async function saveArchiveReport(reportId: string, patch: Partial<DailyQu
   return mapDailyReport(data);
 }
 
-export async function archiveReport(reportId: string): Promise<DailyQualityReport> {
+export async function archiveReport(reportId?: string): Promise<DailyQualityReport> {
+  const report = reportId ? await getArchiveReport(reportId) : await getOrCreateDailyReport(getLocalDate());
+
+  const archivedAt = new Date().toISOString();
   const { data, error } = await supabase
     .from('daily_quality_reports')
     .update({
       status: 'archived',
-      closed_at: new Date().toISOString(),
-      archived_at: new Date().toISOString(),
+      closed_at: archivedAt,
+      archived_at: archivedAt,
     })
-    .eq('id', reportId)
+    .eq('id', report.id)
     .eq('department', 'bakery')
     .select()
     .single();
