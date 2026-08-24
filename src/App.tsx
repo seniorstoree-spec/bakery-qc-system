@@ -33,52 +33,12 @@ const toManagedUserProfile = (user: ManagedUser): UserProfile => {
   return withRolePermissions({ id:user.supabaseId || user.id, name:user.name, role, department:user.department || 'إدارة الجودة - قسم المخبوزات', title:user.title || 'مستخدم جودة', permissions:user.permissions || {} }, role);
 };
 
-const isNumericInput = (target: EventTarget | null): target is HTMLInputElement => {
-  if (!(target instanceof HTMLInputElement)) return false;
-  const mode = target.getAttribute('inputmode');
-  return target.type === 'number' || mode === 'numeric' || mode === 'decimal';
-};
-
-const hasArabicDigits = (value: string) => /[٠-٩۰-۹]/.test(value);
-
 const MainLayout: React.FC<{ config: AdminConfig; onConfigChange:(next:AdminConfig)=>void; onLogout:()=>void }> = ({ config, onConfigChange, onLogout }) => {
   const [activeTab,setActiveTab]=useState<NavTab>('dashboard');
   const [isSidebarOpen,setIsSidebarOpen]=useState(false);
   const [showAdmin,setShowAdmin]=useState(false);
   const { currentUser } = useApp();
   useEffect(()=>{applyAdminAppearance(config.appearance)},[config.appearance]);
-
-  useEffect(() => {
-    const preventArabicDigits = (event: Event) => {
-      const target = event.target;
-      if (!isNumericInput(target)) return;
-      const beforeInput = event as InputEvent;
-      if (hasArabicDigits(beforeInput.data || '')) event.preventDefault();
-    };
-
-    const blockArabicDigitKeys = (event: KeyboardEvent) => {
-      if (!isNumericInput(event.target)) return;
-      if (/^[٠-٩۰-۹]$/.test(event.key)) event.preventDefault();
-    };
-
-    const sanitizeNumericValue = (event: Event) => {
-      const target = event.target;
-      if (!isNumericInput(target) || !hasArabicDigits(target.value)) return;
-      const cleaned = target.value.replace(/[٠-٩۰-۹]/g, '');
-      target.value = cleaned;
-      target.dispatchEvent(new Event('change', { bubbles: true }));
-    };
-
-    document.addEventListener('beforeinput', preventArabicDigits, true);
-    document.addEventListener('keydown', blockArabicDigitKeys, true);
-    document.addEventListener('input', sanitizeNumericValue, true);
-    return () => {
-      document.removeEventListener('beforeinput', preventArabicDigits, true);
-      document.removeEventListener('keydown', blockArabicDigitKeys, true);
-      document.removeEventListener('input', sanitizeNumericValue, true);
-    };
-  }, []);
-
   const isAdmin=currentUser.role==='system_admin';
   return <div dir="rtl" className="min-h-screen min-w-0 flex flex-col overflow-x-hidden bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors" style={{fontFamily:'var(--app-font)'}}>
     <Navbar onToggleSidebar={()=>setIsSidebarOpen(!isSidebarOpen)} onOpenAdmin={isAdmin?()=>setShowAdmin(true):undefined} onLogout={onLogout}/>
