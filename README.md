@@ -64,3 +64,5 @@ npm run dev
 # بناء النسخة الإنتاجية
 npm run build
 ```
+
+<!-- Vercel deployment trigger: 2026-08-24 -->
