@@ -3,6 +3,7 @@ import { loadAllQualityForms } from './qualityPersistenceService';
 import { getIpcComplianceSnapshot } from '../utils/ipcComplianceControls';
 import type { DailyQualityReport } from '../types/dailyReport';
 
+// Production deployment trigger: keep archive/IPC source aligned with the current main branch.
 export interface ArchiveMonth { year:number; month:number; monthName:string; reportCount:number; }
 export interface ArchivedReportDetails extends DailyQualityReport { reportSnapshot: Record<string, unknown>; }
 const monthNames=['يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'];
