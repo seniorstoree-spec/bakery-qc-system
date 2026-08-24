@@ -13,14 +13,21 @@ const getLocalDate=()=>{try{return localStorage.getItem('bakery-qc-active-date')
 
 const isUsefulSection=(key:string,value:unknown)=>{
   if(value===null||value===undefined)return false;
-  if(Array.isArray(value)){if(value.length===0)return false;if(key==='releaseForms')return value.some((row:any)=>Array.isArray(row?.products)&&row.products.length>0||row?.decision&&row.decision!=='pending'||row?.qaReleaseOfficerName||row?.storekeeperName);if(key==='sanitationLogs')return value.some((row:any)=>Array.isArray(row?.items)&&row.items.length>0);if(key==='foodSafetyLogs')return value.some((row:any)=>Array.isArray(row?.checks)&&row.checks.length>0);if(key==='ipcCompliance')return value.some((row:any)=>row?.productName&&(row?.complianceStatus==='compliant'||row?.complianceStatus==='noncompliant'||row?.status==='compliant'||row?.status==='noncompliant'||typeof row?.status==='string'));return true;}
+  if(Array.isArray(value)){
+    if(value.length===0)return false;
+    if(key==='releaseForms')return value.some((row:any)=>Array.isArray(row?.products)&&row.products.length>0||row?.decision&&row.decision!=='pending'||row?.qaReleaseOfficerName||row?.storekeeperName);
+    if(key==='ipcCompliance')return value.some((row:any)=>row?.productName&&(row?.complianceStatus||row?.status));
+    if(key==='sanitationLogs')return value.some((row:any)=>Array.isArray(row?.items)&&row.items.length>0);
+    if(key==='foodSafetyLogs')return value.some((row:any)=>Array.isArray(row?.checks)&&row.checks.length>0);
+    return true;
+  }
   return typeof value==='object'&&Object.keys(value as object).length>0;
 };
 
 async function loadLiveSnapshot(reportDate:string):Promise<Record<string,unknown>>{try{return await loadAllQualityForms(reportDate) as Record<string,unknown>}catch{return {}}}
 
 const mergeIpcRows=(existing:unknown,live:unknown):Array<Record<string,unknown>>=>{
-  const rows=[...(Array.isArray(existing)?existing:[]),...(Array.isArray(live)?live:[])].filter((row):row is Record<string,unknown>=>!!row&&typeof row==='object');
+  const rows=[...(Array.isArray(existing)?existing:[]),...(Array.isArray(live)?live:[])].filter((row):row is Record<string,unknown=>!!row&&typeof row==='object');
   const map=new Map<string,Record<string,unknown>>();
   for(const row of rows){
     const productName=String(row.productName??row.product??'').trim();
@@ -41,13 +48,13 @@ async function buildArchiveSnapshot(reportDate:string,existing:Record<string,unk
   for(const key of keys){
     const liveValue=live[key],existingValue=existing[key];
     if(key==='ipcCompliance'){merged[key]=mergeIpcRows(existingValue,liveIpc.length?liveIpc:liveValue);continue;}
-    // Prefer the live database-backed data. Only keep existing snapshot data when the live section has no useful records.
     if(isUsefulSection(key,liveValue))merged[key]=liveValue;
     else if(isUsefulSection(key,existingValue))merged[key]=existingValue;
-    else if(key in live)merged[key]=liveValue??[];
-    else if(key in existing)merged[key]=existingValue??[];
+    else if(key in live)merged[key]=[];
   }
-  if(!('ipcCompliance' in merged))merged.ipcCompliance=mergeIpcRows(undefined,liveIpc);
+  const ipc=mergeIpcRows(existing.ipcCompliance,liveIpc);
+  if(ipc.length)merged.ipcCompliance=ipc;
+  else delete merged.ipcCompliance;
   return merged;
 }
 
