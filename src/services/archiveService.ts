@@ -64,7 +64,7 @@ async function loadFoodSafetyDirect(reportDate:string):Promise<Record<string,unk
   }catch(error){console.warn('Direct food safety archive load failed',error);return []}
 }
 const mergeIpcRows=(existing:unknown,live:unknown):Array<Record<string,unknown>>=>{const rows=[...(Array.isArray(existing)?existing:[]),...(Array.isArray(live)?live:[])].filter((row):row is Record<string,unknown>=>!!row&&typeof row==='object');const map=new Map<string,Record<string,unknown>>();for(const row of rows){const productName=String(row.productName??row.product??'').trim();if(!productName)continue;const rawStatus=String(row.complianceStatus??row.status??'').toLowerCase();const complianceStatus=rawStatus.includes('noncompliant')||rawStatus.includes('غير مطابق')?'noncompliant':rawStatus.includes('compliant')||rawStatus.includes('مطابق')?'compliant':'';if(!complianceStatus)continue;map.set(productName,{productName,status:complianceStatus==='compliant'?'مطابق ✓':'غير مطابق ×',complianceStatus,reason:complianceStatus==='noncompliant'?String(row.reason??''):'',savedAt:row.savedAt??row.saved_at??new Date().toISOString()});}return[...map.values()];};
-const pickExistingOrLive=(...values:unknown[])=>values.find(isUsefulSection);
+const pickExistingOrLive=(...values:unknown[])=>values.find(value=>isUsefulSection('section',value));
 
 async function buildArchiveSnapshot(reportDate:string,existing:Record<string,unknown>={}):Promise<Record<string,unknown>>{
   const live=await loadLiveSnapshot(reportDate);
