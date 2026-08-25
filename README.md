@@ -13,6 +13,7 @@
 - عرض أقسام التقرير المؤرشفة التي تحتوي على بيانات فعلية.
 - إصلاح تشغيل Vercel بعد تعديلات نماذج النظافة والتطهير وGHP.
 - إصلاح خطأ TypeScript في archiveService مع الحفاظ على منطق الأرشفة السابق.
+- تشغيل نشر Production جديد من آخر نسخة main بعد إصلاح build.
 
 ### التشغيل
 ```bash
@@ -21,4 +22,4 @@ npm run dev
 npm run build
 ```
 
-<!-- Vercel deployment trigger: archive-service-ts-fix-2026-08-25 -->
+<!-- Vercel deployment trigger: production-redeploy-after-archive-fix-2026-08-25 -->
