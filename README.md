@@ -22,4 +22,4 @@ npm run dev
 npm run build
 ```
 
-<!-- Vercel deployment trigger: production-redeploy-after-archive-fix-2026-08-25 -->
+<!-- Vercel deployment trigger: production-redeploy-after-archive-fix-2026-08-25-v2 -->
