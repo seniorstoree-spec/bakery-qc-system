@@ -9,38 +9,34 @@ const monthNames=['يناير','فبراير','مارس','أبريل','مايو'
 const mapDailyReport=(row:any):DailyQualityReport=>({id:row.id,reportDate:row.report_date,status:row.status,createdBy:row.created_by??undefined,createdAt:row.created_at??undefined,closedAt:row.closed_at??undefined,sectionsCompleted:row.sections_completed??undefined,totalSections:row.total_sections??undefined});
 const mapArchivedReport=(row:any):ArchivedReportDetails=>({...mapDailyReport(row),reportSnapshot:row.report_snapshot&&typeof row.report_snapshot==='object'?row.report_snapshot:{}});
 const getLocalDate=()=>{try{return localStorage.getItem('bakery-qc-active-date')||new Date().toISOString().slice(0,10)}catch{return new Date().toISOString().slice(0,10)}};
-const isUsefulSection=(key:string,value:unknown)=>{
-  if(value===null||value===undefined)return false;
-  if(Array.isArray(value)){
-    const rows=value as unknown[];
-    if(rows.length===0)return false;
-    if(key==='releaseForms')return rows.length>0;
-    if(key==='ipcCompliance')return rows.some((item)=>{
-      if(!item||typeof item!=='object')return false;
-      const row=item as Record<string,unknown>;
-      return Boolean(row.productName)&&(Boolean(row.complianceStatus)||Boolean(row.status));
-    });
-    if(key==='sanitationLogs')return rows.some((item)=>{
-      if(!item||typeof item!=='object')return false;
-      const row=item as Record<string,unknown>;
-      return Array.isArray(row.items)&&row.items.length>0;
-    });
-    if(key==='foodSafetyLogs')return rows.some((item)=>{
-      if(!item||typeof item!=='object')return false;
-      const row=item as Record<string,unknown>;
-      return Array.isArray(row.checks)&&row.checks.length>0;
-    });
-    return true;
-  }
-  if(typeof value==='object')return Object.keys(value as Record<string,unknown>).length>0;
-  return false;
-};
+const isUsefulSection=(key:string,value:unknown)=>{if(value===null||value===undefined)return false;if(Array.isArray(value)){if(value.length===0)return false;if(key==='releaseForms')return value.length>0;if(key==='ipcCompliance')return value.some((item)=>{if(!item||typeof item!=='object')return false;const row=item as Record<string,unknown>;return Boolean(row.productName)&&(Boolean(row.complianceStatus)||Boolean(row.status));});if(key==='sanitationLogs')return value.some((item)=>{if(!item||typeof item!=='object')return false;const row=item as Record<string,unknown>;return Array.isArray(row.items)&&row.items.length>0;});if(key==='foodSafetyLogs')return value.some((item)=>{if(!item||typeof item!=='object')return false;const row=item as Record<string,unknown>;return Array.isArray(row.checks)&&row.checks.length>0;});return true;}if(typeof value==='object')return Object.keys(value as Record<string,unknown>).length>0;return false;};
 async function loadLiveSnapshot(reportDate:string):Promise<Record<string,unknown>>{try{return await loadAllQualityForms(reportDate) as Record<string,unknown>}catch(error){console.warn('Archive snapshot load used partial data after load failure',error);return {}}}
 async function loadDefectsDirect(reportDate:string):Promise<Record<string,unknown>[]> {try{const{data,error}=await supabase.from('defect_logs').select('*').eq('date',reportDate).order('created_at',{ascending:true});if(error){console.warn('Direct defect archive load failed',error);return []}return (data??[]) as Record<string,unknown>[]}catch(error){console.warn('Direct defect archive load failed',error);return []}}
-async function loadSanitationDirect(reportDate:string):Promise<Record<string,unknown>[]> {try{const{data:parents,error:parentError}=await supabase.from('daily_sanitation_logs').select('*').eq('date',reportDate).order('created_at',{ascending:true});if(parentError){console.warn('Direct sanitation parent load failed',parentError);return []}if(!parents?.length)return [];const result:Record<string,unknown>[]=[];for(const parent of parents){const{data:items,error:itemError}=await supabase.from('sanitation_equipment_checks').select('*').eq('log_id',parent.id).order('id');if(itemError){console.warn('Direct sanitation item load failed',itemError);continue;}const mappedItems=(items??[]).map((item:any)=>({equipmentName:item.equipment_name,equipmentCode:item.equipment_code??'',morningShift:{startShift:item.morning_start,endShift:item.morning_end,notes:item.morning_notes??undefined},eveningShift:{startShift:item.evening_start,endShift:item.evening_end,notes:item.evening_notes??undefined}}));if(mappedItems.length>0)result.push({id:parent.id,date:parent.date,day:parent.day,bakerySection:parent.bakery_section??parent.bakerySection,inspectorSignature:parent.inspector_signature??parent.inspectorSignature,items:mappedItems});}return result;}catch(error){console.warn('Direct sanitation archive load failed',error);return []}}
-async function loadFoodSafetyDirect(reportDate:string):Promise<Record<string,unknown>[]> {try{const{data:parents,error:parentError}=await supabase.from('daily_food_safety_logs').select('*').eq('date',reportDate).order('created_at',{ascending:true});if(parentError){console.warn('Direct food safety parent load failed',parentError);return []}if(!parents?.length)return [];const result:Record<string,unknown>[]=[];for(const parent of parents){const{data:checks,error:checkError}=await supabase.from('food_safety_item_checks').select('*').eq('log_id',parent.id).order('id');if(checkError){console.warn('Direct food safety item load failed',checkError);continue;}const mappedChecks=(checks??[]).map((item:any)=>({id:item.id,category:item.category,criterion:item.criterion,morningShift:{startShift:item.morning_start,midShift:item.morning_mid,notes:item.morning_notes??undefined},eveningShift:{startShift:item.evening_start,midShift:item.evening_mid,notes:item.evening_notes??undefined}}));if(mappedChecks.length>0)result.push({id:parent.id,date:parent.date,day:parent.day,bakerySection:parent.bakery_section??parent.bakerySection,inspectorSignature:parent.inspector_signature??parent.inspectorSignature,checks:mappedChecks});}return result;}catch(error){console.warn('Direct food safety archive load failed',error);return []}}
+async function loadSanitationDirect(reportDate:string):Promise<Record<string,unknown>[]> {try{const{data:parents,error:parentError}=await supabase.from('daily_sanitation_logs').select('*').eq('date',reportDate).order('created_at',{ascending:true});if(parentError||!parents?.length)return [];const result:Record<string,unknown>[]=[];for(const parent of parents){const{data:items,error:itemError}=await supabase.from('sanitation_equipment_checks').select('*').eq('log_id',parent.id).order('id');if(itemError)continue;const mappedItems=(items??[]).map((item:any)=>({equipmentName:item.equipment_name,equipmentCode:item.equipment_code??'',morningShift:{startShift:item.morning_start,endShift:item.morning_end,notes:item.morning_notes??undefined},eveningShift:{startShift:item.evening_start,endShift:item.evening_end,notes:item.evening_notes??undefined}}));if(mappedItems.length>0)result.push({id:parent.id,date:parent.date,day:parent.day,bakerySection:parent.bakery_section??parent.bakerySection,inspectorSignature:parent.inspector_signature??parent.inspectorSignature,items:mappedItems});}return result;}catch(error){console.warn('Direct sanitation archive load failed',error);return []}}
+async function loadFoodSafetyDirect(reportDate:string):Promise<Record<string,unknown>[]> {try{const{data:parents,error:parentError}=await supabase.from('daily_food_safety_logs').select('*').eq('date',reportDate).order('created_at',{ascending:true});if(parentError||!parents?.length)return [];const result:Record<string,unknown>[]=[];for(const parent of parents){const{data:checks,error:checkError}=await supabase.from('food_safety_item_checks').select('*').eq('log_id',parent.id).order('id');if(checkError)continue;const mappedChecks=(checks??[]).map((item:any)=>({id:item.id,category:item.category,criterion:item.criterion,morningShift:{startShift:item.morning_start,midShift:item.morning_mid,notes:item.morning_notes??undefined},eveningShift:{startShift:item.evening_start,midShift:item.evening_mid,notes:item.evening_notes??undefined}}));if(mappedChecks.length>0)result.push({id:parent.id,date:parent.date,day:parent.day,bakerySection:parent.bakery_section??parent.bakerySection,inspectorSignature:parent.inspector_signature??parent.inspectorSignature,checks:mappedChecks});}return result;}catch(error){console.warn('Direct food safety archive load failed',error);return []}}
 const mergeIpcRows=(existing:unknown,live:unknown):Array<Record<string,unknown>>=>{const rows=[...(Array.isArray(existing)?existing:[]),...(Array.isArray(live)?live:[])].filter((row):row is Record<string,unknown>=>!!row&&typeof row==='object');const map=new Map<string,Record<string,unknown>>();for(const row of rows){const productName=String(row.productName??row.product??'').trim();if(!productName)continue;const rawStatus=String(row.complianceStatus??row.status??'').toLowerCase();const complianceStatus=rawStatus.includes('noncompliant')||rawStatus.includes('غير مطابق')?'noncompliant':rawStatus.includes('compliant')||rawStatus.includes('مطابق')?'compliant':'';if(!complianceStatus)continue;map.set(productName,{productName,status:complianceStatus==='compliant'?'مطابق ✓':'غير مطابق ×',complianceStatus,reason:complianceStatus==='noncompliant'?String(row.reason??''):'',savedAt:row.savedAt??row.saved_at??new Date().toISOString()});}return[...map.values()];};
-async function buildArchiveSnapshot(reportDate:string,existing:Record<string,unknown>={}):Promise<Record<string,unknown>>{const live=await loadLiveSnapshot(reportDate);const directDefects=await loadDefectsDirect(reportDate);const sanitationDirect=await loadSanitationDirect(reportDate);const foodSafetyDirect=await loadFoodSafetyDirect(reportDate);const liveIpc=getIpcComplianceSnapshot(reportDate);const merged:Record<string,unknown>={...existing};for(const key of Object.keys(live)){const liveValue=live[key];if(isUsefulSection(key,liveValue))merged[key]=liveValue;}if(directDefects.length)merged.defects=directDefects;if(sanitationDirect.length)merged.sanitationLogs=sanitationDirect;if(foodSafetyDirect.length)merged.foodSafetyLogs=foodSafetyDirect;const existingIpc=existing['ipcCompliance'];const fallbackIpc=live['ipcCompliance'];const ipc=mergeIpcRows(existingIpc,liveIpc.length?liveIpc:fallbackIpc);if(ipc.length)merged.ipcCompliance=ipc;return merged;}
+
+const pickFirstUseful=(...values:unknown[])=>values.find((value)=>isUsefulSection('generic',value));
+
+async function buildArchiveSnapshot(reportDate:string,existing:Record<string,unknown>={}):Promise<Record<string,unknown>>{
+  const live=await loadLiveSnapshot(reportDate);
+  const directDefects=await loadDefectsDirect(reportDate);
+  const sanitationDirect=await loadSanitationDirect(reportDate);
+  const foodSafetyDirect=await loadFoodSafetyDirect(reportDate);
+  const liveIpc=getIpcComplianceSnapshot(reportDate);
+  const merged:Record<string,unknown>={...existing};
+  for(const key of Object.keys(live)){const liveValue=live[key];if(isUsefulSection(key,liveValue))merged[key]=liveValue;}
+  if(directDefects.length)merged.defects=directDefects;
+  const sanitationCandidate=pickFirstUseful(sanitationDirect,live.sanitationLogs,existing.sanitationLogs);
+  const foodSafetyCandidate=pickFirstUseful(foodSafetyDirect,live.foodSafetyLogs,existing.foodSafetyLogs);
+  if(sanitationCandidate!==undefined)merged.sanitationLogs=sanitationCandidate;
+  if(foodSafetyCandidate!==undefined)merged.foodSafetyLogs=foodSafetyCandidate;
+  const existingIpc=existing['ipcCompliance'];
+  const fallbackIpc=live['ipcCompliance'];
+  const ipc=mergeIpcRows(existingIpc,liveIpc.length?liveIpc:fallbackIpc);
+  if(ipc.length)merged.ipcCompliance=ipc;
+  return merged;
+}
 function normalizeArchivedSnapshot(snapshot:Record<string,unknown>):Record<string,unknown>{return {...snapshot};}
 const needsSectionRebuild=(snapshot:Record<string,unknown>)=>!isUsefulSection('sanitationLogs',snapshot.sanitationLogs)||!isUsefulSection('foodSafetyLogs',snapshot.foodSafetyLogs);
 async function refreshArchivedSnapshot(row:ArchivedReportDetails):Promise<ArchivedReportDetails>{if(!needsSectionRebuild(row.reportSnapshot))return row;const rebuilt=await buildArchiveSnapshot(row.reportDate,row.reportSnapshot);if(JSON.stringify(rebuilt)===JSON.stringify(row.reportSnapshot))return row;const{data:saved,error:saveError}=await supabase.from('daily_quality_reports').update({report_snapshot:rebuilt}).eq('id',row.id).eq('department','bakery').select().single();if(!saveError&&saved)return mapArchivedReport(saved);return{...row,reportSnapshot:rebuilt};}
