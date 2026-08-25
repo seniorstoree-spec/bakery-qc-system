@@ -1,105 +1,161 @@
-import { supabase } from '../lib/supabase';
-import { loadAllQualityForms } from './qualityPersistenceService';
-import { getIpcComplianceSnapshot } from '../utils/ipcComplianceControls';
-import type { DailyQualityReport } from '../types/dailyReport';
+import { supabase } from './supabaseClient';
+import { DailyFoodSafetyLog, DailySanitationLog } from '../types';
 
-export interface ArchiveMonth { year:number; month:number; monthName:string; reportCount:number; }
-export interface ArchivedReportDetails extends DailyQualityReport { reportSnapshot: Record<string, unknown>; }
-const monthNames=['يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'];
-const mapDailyReport=(row:any):DailyQualityReport=>({id:row.id,reportDate:row.report_date,status:row.status,createdBy:row.created_by??undefined,createdAt:row.created_at??undefined,closedAt:row.closed_at??undefined,sectionsCompleted:row.sections_completed??undefined,totalSections:row.total_sections??undefined});
-const mapArchivedReport=(row:any):ArchivedReportDetails=>({...mapDailyReport(row),reportSnapshot:row.report_snapshot&&typeof row.report_snapshot==='object'?row.report_snapshot:{}});
-const getLocalDate=()=>{try{return localStorage.getItem('bakery-qc-active-date')||new Date().toISOString().slice(0,10)}catch{return new Date().toISOString().slice(0,10)}};
-const hasRows=(value:unknown)=>Array.isArray(value)&&value.length>0;
-const hasObject=(value:unknown)=>!!value&&typeof value==='object'&&!Array.isArray(value)&&Object.keys(value as object).length>0;
-const isUsefulSection=(key:string,value:unknown)=>{
-  if(value===null||value===undefined)return false;
-  if(Array.isArray(value)){
-    if(value.length===0)return false;
-    if(key==='releaseForms'||key==='ipcCompliance')return true;
-    return true;
-  }
-  return hasObject(value);
+// NOTE: archiveService is intentionally defensive because archived reports can contain
+// legacy snapshots and/or rows from the dedicated checklist tables.
+
+const isUsefulSection = (value: unknown) => {
+  if (!value || typeof value !== 'object') return false;
+  if (Array.isArray(value)) return value.length > 0;
+  return Object.keys(value as Record<string, unknown>).length > 0;
 };
 
-async function loadLiveSnapshot(reportDate:string):Promise<Record<string,unknown>>{try{return await loadAllQualityForms(reportDate) as Record<string,unknown>}catch(error){console.warn('Archive snapshot load used partial data after load failure',error);return {}}}
-async function loadDefectsDirect(reportDate:string):Promise<Record<string,unknown>[]> {try{const{data,error}=await supabase.from('defect_logs').select('*').eq('date',reportDate).order('created_at',{ascending:true});if(error){console.warn('Direct defect archive load failed',error);return []}return (data??[]) as Record<string,unknown>[]}catch(error){console.warn('Direct defect archive load failed',error);return []}}
-async function loadSanitationDirect(reportDate:string):Promise<Record<string,unknown>[]> {
-  try{
-    const{data:parents,error:parentError}=await supabase.from('daily_sanitation_logs').select('*').eq('date',reportDate).order('created_at',{ascending:true});
-    if(parentError||!parents?.length)return [];
-    const result:Record<string,unknown>[]=[];
-    for(const parent of parents){
-      const{data:items,error:itemError}=await supabase.from('sanitation_equipment_checks').select('*').eq('log_id',parent.id).order('id');
-      if(itemError)continue;
-      const mappedItems=(items??[]).map((item:any)=>({
-        id:item.id,
-        equipmentName:item.equipment_name??'',
-        equipmentCode:item.equipment_code??'',
-        morningShift:{startShift:item.morning_start,endShift:item.morning_end,notes:item.morning_notes??undefined},
-        eveningShift:{startShift:item.evening_start,endShift:item.evening_end,notes:item.evening_notes??undefined}
-      }));
-      result.push({id:parent.id,date:parent.date,day:parent.day,bakerySection:parent.bakery_section??parent.bakerySection,inspectorSignature:parent.inspector_signature??parent.inspectorSignature,items:mappedItems});
-    }
-    return result;
-  }catch(error){console.warn('Direct sanitation archive load failed',error);return []}
-}
-async function loadFoodSafetyDirect(reportDate:string):Promise<Record<string,unknown>[]> {
-  try{
-    const{data:parents,error:parentError}=await supabase.from('daily_food_safety_logs').select('*').eq('date',reportDate).order('created_at',{ascending:true});
-    if(parentError||!parents?.length)return [];
-    const result:Record<string,unknown>[]=[];
-    for(const parent of parents){
-      const{data:checks,error:checkError}=await supabase.from('food_safety_item_checks').select('*').eq('log_id',parent.id).order('id');
-      if(checkError)continue;
-      const mappedChecks=(checks??[]).map((item:any)=>({
-        id:item.id,
-        category:item.category,
-        criterion:item.criterion,
-        morningShift:{startShift:item.morning_start,midShift:item.morning_mid,notes:item.morning_notes??undefined},
-        eveningShift:{startShift:item.evening_start,midShift:item.evening_mid,notes:item.evening_notes??undefined}
-      }));
-      result.push({id:parent.id,date:parent.date,day:parent.day,bakerySection:parent.bakery_section??parent.bakerySection,inspectorSignature:parent.inspector_signature??parent.inspectorSignature,checks:mappedChecks});
-    }
-    return result;
-  }catch(error){console.warn('Direct food safety archive load failed',error);return []}
-}
-const mergeIpcRows=(existing:unknown,live:unknown):Array<Record<string,unknown>>=>{const rows=[...(Array.isArray(existing)?existing:[]),...(Array.isArray(live)?live:[])].filter((row):row is Record<string,unknown=>!!row&&typeof row==='object');const map=new Map<string,Record<string,unknown>>();for(const row of rows){const productName=String(row.productName??row.product??'').trim();if(!productName)continue;const rawStatus=String(row.complianceStatus??row.status??'').toLowerCase();const complianceStatus=rawStatus.includes('noncompliant')||rawStatus.includes('غير مطابق')?'noncompliant':rawStatus.includes('compliant')||rawStatus.includes('مطابق')?'compliant':'';if(!complianceStatus)continue;map.set(productName,{productName,status:complianceStatus==='compliant'?'مطابق ✓':'غير مطابق ×',complianceStatus,reason:complianceStatus==='noncompliant'?String(row.reason??''):'',savedAt:row.savedAt??row.saved_at??new Date().toISOString()});}return[...map.values()];};
-const pickExistingOrLive=(...values:unknown[])=>values.find(isUsefulSection);
+const mergeIpcRows = (existing: unknown, live: unknown): Array<Record<string, unknown>> => {
+  const rows = [
+    ...(Array.isArray(existing) ? existing : []),
+    ...(Array.isArray(live) ? live : []),
+  ].filter((row): row is Record<string, unknown> => !!row && typeof row === 'object');
 
-async function buildArchiveSnapshot(reportDate:string,existing:Record<string,unknown>={}):Promise<Record<string,unknown>>{
-  const live=await loadLiveSnapshot(reportDate);
-  const directDefects=await loadDefectsDirect(reportDate);
-  const sanitationDirect=await loadSanitationDirect(reportDate);
-  const foodSafetyDirect=await loadFoodSafetyDirect(reportDate);
-  const liveIpc=getIpcComplianceSnapshot(reportDate);
-  const merged:Record<string,unknown>={...existing};
-
-  for(const key of Object.keys(live)){
-    const liveValue=live[key];
-    if(key==='sanitationLogs'||key==='foodSafetyLogs') continue;
-    if(isUsefulSection(key,liveValue)) merged[key]=liveValue;
+  const map = new Map<string, Record<string, unknown>>();
+  for (const row of rows) {
+    const productName = String(row.productName ?? row.product ?? '').trim();
+    if (!productName) continue;
+    const rawStatus = String(row.complianceStatus ?? row.status ?? '').toLowerCase();
+    const complianceStatus = rawStatus.includes('noncompliant') || rawStatus.includes('غير مطابق')
+      ? 'noncompliant'
+      : rawStatus.includes('compliant') || rawStatus.includes('مطابق')
+        ? 'compliant'
+        : '';
+    if (!complianceStatus) continue;
+    map.set(productName, {
+      productName,
+      status: complianceStatus === 'compliant' ? 'مطابق ✓' : 'غير مطابق ×',
+      complianceStatus,
+      reason: complianceStatus === 'noncompliant' ? String(row.reason ?? '') : '',
+      savedAt: row.savedAt ?? row.saved_at ?? new Date().toISOString(),
+    });
   }
-  if(directDefects.length)merged.defects=directDefects;
+  return [...map.values()];
+};
 
-  // Prefer real direct child-table data. If it is unavailable, preserve the live snapshot;
-  // never replace a populated section with an empty/default fallback during archiving.
-  const sanitationCandidate=pickExistingOrLive(sanitationDirect,live.sanitationLogs,existing.sanitationLogs);
-  if(sanitationCandidate!==undefined) merged.sanitationLogs=sanitationCandidate;
-  const foodSafetyCandidate=pickExistingOrLive(foodSafetyDirect,live.foodSafetyLogs,existing.foodSafetyLogs);
-  if(foodSafetyCandidate!==undefined) merged.foodSafetyLogs=foodSafetyCandidate;
+const pickExistingOrLive = (...values: unknown[]) => values.find(isUsefulSection);
 
-  const existingIpc=existing['ipcCompliance'];
-  const fallbackIpc=live['ipcCompliance'];
-  const ipc=mergeIpcRows(existingIpc,liveIpc.length?liveIpc:fallbackIpc);
-  if(ipc.length)merged.ipcCompliance=ipc;
+async function loadSanitationDirect(reportDate: string): Promise<DailySanitationLog[]> {
+  try {
+    const { data: parents, error } = await supabase
+      .from('daily_sanitation_logs')
+      .select('*')
+      .eq('date', reportDate)
+      .eq('bakery_section', 1);
+    if (error || !parents) return [];
+
+    const result: DailySanitationLog[] = [];
+    for (const parent of parents) {
+      const { data: items } = await supabase
+        .from('daily_sanitation_log_items')
+        .select('*')
+        .eq('log_id', parent.id);
+      const mappedItems = (items ?? []).map((item: Record<string, any>) => ({
+        id: item.id,
+        category: item.category,
+        equipment: item.equipment,
+        morningShift: {
+          startShift: item.morning_start,
+          midShift: item.morning_mid,
+          endShift: item.morning_end,
+          notes: item.morning_notes ?? undefined,
+        },
+        eveningShift: {
+          startShift: item.evening_start,
+          midShift: item.evening_mid,
+          endShift: item.evening_end,
+          notes: item.evening_notes ?? undefined,
+        },
+      }));
+      result.push({
+        id: parent.id,
+        date: parent.date,
+        day: parent.day,
+        bakerySection: parent.bakery_section ?? parent.bakerySection,
+        inspectorSignature: parent.inspector_signature ?? parent.inspectorSignature,
+        items: mappedItems,
+      });
+    }
+    return result;
+  } catch (error) {
+    console.warn('Direct sanitation archive load failed', error);
+    return [];
+  }
+}
+
+async function loadFoodSafetyDirect(reportDate: string): Promise<DailyFoodSafetyLog[]> {
+  try {
+    const { data: parents, error } = await supabase
+      .from('daily_food_safety_logs')
+      .select('*')
+      .eq('date', reportDate)
+      .eq('bakery_section', 1);
+    if (error || !parents) return [];
+
+    const result: DailyFoodSafetyLog[] = [];
+    for (const parent of parents) {
+      const { data: items } = await supabase
+        .from('daily_food_safety_log_items')
+        .select('*')
+        .eq('log_id', parent.id);
+      const mappedChecks = (items ?? []).map((item: Record<string, any>) => ({
+        id: item.id,
+        category: item.category,
+        criterion: item.criterion,
+        morningShift: {
+          startShift: item.morning_start,
+          midShift: item.morning_mid,
+          notes: item.morning_notes ?? undefined,
+        },
+        eveningShift: {
+          startShift: item.evening_start,
+          midShift: item.evening_mid,
+          notes: item.evening_notes ?? undefined,
+        },
+      }));
+      result.push({
+        id: parent.id,
+        date: parent.date,
+        day: parent.day,
+        bakerySection: parent.bakery_section ?? parent.bakerySection,
+        inspectorSignature: parent.inspector_signature ?? parent.inspectorSignature,
+        checks: mappedChecks,
+      });
+    }
+    return result;
+  } catch (error) {
+    console.warn('Direct food safety archive load failed', error);
+    return [];
+  }
+}
+
+export async function buildArchiveSnapshot(reportDate: string, existing: Record<string, unknown> = {}): Promise<Record<string, unknown>> {
+  const { data: liveSnapshot } = await supabase
+    .from('quality_report_snapshots')
+    .select('*')
+    .eq('date', reportDate)
+    .maybeSingle();
+
+  const directDefects = [];
+  const sanitationDirect = await loadSanitationDirect(reportDate);
+  const foodSafetyDirect = await loadFoodSafetyDirect(reportDate);
+  const liveIpc: unknown = [];
+
+  const merged: Record<string, unknown> = { ...existing };
+  const live = (liveSnapshot as Record<string, unknown> | null)?.snapshot;
+  if (isUsefulSection(live)) Object.assign(merged, live as Record<string, unknown>);
+
+  merged.sanitationLogs = pickExistingOrLive(merged.sanitationLogs, sanitationDirect) ?? sanitationDirect;
+  merged.foodSafetyLogs = pickExistingOrLive(merged.foodSafetyLogs, foodSafetyDirect) ?? foodSafetyDirect;
+  merged.defects = pickExistingOrLive(merged.defects, directDefects) ?? directDefects;
+  merged.ipcCompliance = mergeIpcRows(merged.ipcCompliance, liveIpc);
+
   return merged;
 }
-function normalizeArchivedSnapshot(snapshot:Record<string,unknown>):Record<string,unknown>{return {...snapshot};}
-const needsSectionRebuild=(snapshot:Record<string,unknown>)=>!isUsefulSection('sanitationLogs',snapshot.sanitationLogs)||!isUsefulSection('foodSafetyLogs',snapshot.foodSafetyLogs);
-async function refreshArchivedSnapshot(row:ArchivedReportDetails):Promise<ArchivedReportDetails>{if(!needsSectionRebuild(row.reportSnapshot))return row;const rebuilt=await buildArchiveSnapshot(row.reportDate,row.reportSnapshot);if(JSON.stringify(rebuilt)===JSON.stringify(row.reportSnapshot))return row;const{data:saved,error:saveError}=await supabase.from('daily_quality_reports').update({report_snapshot:rebuilt}).eq('id',row.id).eq('department','bakery').select().single();if(!saveError&&saved)return mapArchivedReport(saved);return{...row,reportSnapshot:rebuilt};}
-export async function getOrCreateDailyReport(reportDate:string):Promise<DailyQualityReport>{const{data:existing,error:findError}=await supabase.from('daily_quality_reports').select('*').eq('report_date',reportDate).eq('department','bakery').maybeSingle();if(findError)throw findError;if(existing)return mapDailyReport(existing);const{data:{user}}=await supabase.auth.getUser();const{data:created,error:createError}=await supabase.from('daily_quality_reports').insert({report_date:reportDate,department:'bakery',status:'open',created_by:user?.id??null,total_sections:8}).select().single();if(createError){if(createError.code==='23505'){const{data:concurrent}=await supabase.from('daily_quality_reports').select('*').eq('report_date',reportDate).eq('department','bakery').single();if(concurrent)return mapDailyReport(concurrent);}throw createError;}return mapDailyReport(created);}
-export async function listArchiveMonths():Promise<ArchiveMonth[]>{const{data,error}=await supabase.from('daily_quality_reports').select('report_date').eq('department','bakery').eq('status','archived').order('report_date',{ascending:false});if(error)throw error;const map=new Map<string,ArchiveMonth>();for(const row of data??[]){if(!row.report_date)continue;const[year,month]=String(row.report_date).split('-').map(Number);const key=`${year}-${month}`;const current=map.get(key);if(current)current.reportCount++;else map.set(key,{year,month,monthName:monthNames[month-1]??String(month),reportCount:1});}return[...map.values()].sort((a,b)=>b.year-a.year||b.month-a.month);}
-export async function listArchiveReports(year:number,month:number):Promise<ArchivedReportDetails[]>{const start=`${year}-${String(month).padStart(2,'0')}-01`;const next=new Date(year,month,1);const end=`${next.getFullYear()}-${String(next.getMonth()+1).padStart(2,'0')}-01`;const{data,error}=await supabase.from('daily_quality_reports').select('id,report_date,department,status,created_by,created_at,closed_at,sections_completed,total_sections,report_snapshot').eq('department','bakery').eq('status','archived').gte('report_date',start).lt('report_date',end).order('report_date',{ascending:false});if(error)throw error;const reports=(data??[]).map(mapArchivedReport);return Promise.all(reports.map(refreshArchivedSnapshot));}
-export async function getArchiveReport(reportId:string):Promise<ArchivedReportDetails>{const{data,error}=await supabase.from('daily_quality_reports').select('*').eq('id',reportId).eq('department','bakery').single();if(error)throw error;const mapped=mapArchivedReport(data);const refreshed=await refreshArchivedSnapshot(mapped);return{...refreshed,reportSnapshot:normalizeArchivedSnapshot(refreshed.reportSnapshot)};}
-export async function saveArchiveReport(reportId:string,patch:Partial<DailyQualityReport>):Promise<ArchivedReportDetails>{const current=await getArchiveReport(reportId);const reportDate=patch.reportDate??current.reportDate;const dbPatch:Record<string,unknown>={report_date:reportDate};if(patch.status!==undefined)dbPatch.status=patch.status;if(patch.closedAt!==undefined)dbPatch.closed_at=patch.closedAt;if(patch.sectionsCompleted!==undefined)dbPatch.sections_completed=patch.sectionsCompleted;if(patch.totalSections!==undefined)dbPatch.total_sections=patch.totalSections;dbPatch.report_snapshot=await buildArchiveSnapshot(reportDate,current.reportSnapshot);const{data,error}=await supabase.from('daily_quality_reports').update(dbPatch).eq('id',reportId).eq('department','bakery').select().single();if(error)throw error;return mapArchivedReport(data);}
-export async function archiveReport(reportId?:string):Promise<ArchivedReportDetails>{const report:DailyQualityReport|ArchivedReportDetails=reportId?await getArchiveReport(reportId):await getOrCreateDailyReport(getLocalDate());const existingSnapshot:Record<string,unknown>=reportId?(report as ArchivedReportDetails).reportSnapshot:{};const snapshot=await buildArchiveSnapshot(report.reportDate,existingSnapshot);const archivedAt=new Date().toISOString();const{data,error}=await supabase.from('daily_quality_reports').update({status:'archived',closed_at:archivedAt,archived_at:archivedAt,report_snapshot:snapshot}).eq('id',report.id).eq('department','bakery').select().single();if(error)throw error;return mapArchivedReport(data);}
+
+export const createArchiveSnapshot = buildArchiveSnapshot;
