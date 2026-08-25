@@ -11,7 +11,7 @@ const labels: Record<string,string> = {
 
 const fields: Record<string,string> = {
   id:'المعرّف', date:'التاريخ', day:'اليوم', reportDate:'تاريخ التقرير', report_date:'تاريخ التقرير', bakerySection:'قسم المخبوزات',
-  department:'القسم', decision:'القرار', notes:'ملاحظات', productName:'الصنف', product:'المنتج', productId:'كود الصنف', unit:'الوحدة',
+  department:'القسم', decision:'القرار', notes:'ملاحظات', productName:'الصنف', product_name:'الصنف', product:'المنتج', productId:'كود الصنف', product_id:'كود الصنف', unit:'الوحدة',
   quantity:'الكمية', criterion:'المعيار', category:'التصنيف', createdAt:'تاريخ الإنشاء', created_at:'تاريخ الإنشاء', updatedAt:'تاريخ التحديث',
   updated_at:'تاريخ التحديث', closedAt:'تاريخ الإغلاق', closed_at:'تاريخ الإغلاق', archivedAt:'تاريخ الأرشفة', archived_at:'تاريخ الأرشفة',
   status:'الحالة', complianceStatus:'حالة المطابقة', compliance_status:'حالة المطابقة', name:'الاسم', code:'الكود', time:'الوقت', stage:'المرحلة',
@@ -26,7 +26,8 @@ const fields: Record<string,string> = {
   sample_code:'كود العينة', inspectorName:'اسم المفتش', inspector_name:'اسم المفتش', reportId:'رقم التقرير', dailyReportId:'رقم التقرير اليومي',
   daily_report_id:'رقم التقرير اليومي', sectionsCompleted:'الأقسام المكتملة', sections_completed:'الأقسام المكتملة', totalSections:'إجمالي الأقسام',
   total_sections:'إجمالي الأقسام', createdBy:'أنشأه', created_by:'أنشأه', verified:'تم التحقق', verifiedAt:'وقت التحقق', verified_at:'وقت التحقق',
-  defectType:'نوع العيب', description:'وصف العيب', action:'الإجراء', severity:'درجة الخطورة', frequency:'التكرار', shift:'الوردية'
+  defectType:'نوع العيب', defect_type:'نوع العيب', description:'وصف العيب', action:'الإجراء', severity:'درجة الخطورة', frequency:'التكرار', shift:'الوردية',
+  criticalDeviation:'انحراف حرج', critical_deviation:'انحراف حرج', defectSummary:'تفاصيل العيوب', defect_summary:'تفاصيل العيوب'
 };
 
 const values: Record<string,string> = {
@@ -54,25 +55,51 @@ const display=(v:unknown):string=>{
 
 const asRows=(data:unknown):Record<string,unknown>[]=>Array.isArray(data)?data.filter(v=>v&&typeof v==='object') as Record<string,unknown>[]:[];
 const hasData=(key:string,data:unknown)=>Array.isArray(data)?data.length>0:(!!data&&typeof data==='object'&&Object.keys(data as object).length>0);
+const valueAt=(row:Record<string,unknown>,key:string):unknown=>{
+  if(Object.prototype.hasOwnProperty.call(row,key)) return row[key];
+  const camel=key.replace(/_([a-z])/g,(_,c)=>String(c).toUpperCase());
+  if(Object.prototype.hasOwnProperty.call(row,camel)) return row[camel];
+  const snake=key.replace(/[A-Z]/g,m=>`_${m.toLowerCase()}`);
+  if(Object.prototype.hasOwnProperty.call(row,snake)) return row[snake];
+  return undefined;
+};
+
+const defectFields: Array<[string,string]> = [
+  ['oversize','زيادة الحجم'],['undersize','نقص الحجم'],['overweight','زيادة الوزن'],['underweight','نقص الوزن'],
+  ['dark_color','لون داكن'],['light_color','لون فاتح'],['burnt_parts','أجزاء محروقة'],['deflated_product','منتج منكمش'],
+  ['gaps_in_pieces','فراغات بين القطع'],['dry_product','منتج جاف'],['doughy_product','منتج عجيني'],['non_laminated','عدم التوريق'],
+  ['bitter_taste','طعم مر'],['rancid_taste','طعم زنخ'],['filling_leakage','تسريب الحشوة'],['excess_filling','زيادة الحشوة'],
+  ['insufficient_filling','نقص الحشوة'],['no_filling','بدون حشوة'],['heavy_texture','قوام ثقيل'],['light_texture','قوام خفيف'],
+  ['excess_glaze','زيادة التغطية'],['insufficient_glaze','نقص التغطية'],['surface_spots','بقع سطحية'],['surface_peeling','تقشر السطح'],
+  ['surface_cracks','تشقق السطح'],['foreign_matters','مواد غريبة'],['expiry_date_defect','عيب تاريخ الصلاحية'],
+  ['sealing_defect','عيب الغلق'],['printing_defect','عيب الطباعة'],['undesired_smell','رائحة غير مرغوبة']
+];
+const summarizeDefect=(row:Record<string,unknown>):string=>{
+  const details=defectFields.filter(([key])=>Number(valueAt(row,key)??0)>0).map(([key,name])=>`${name}: ${display(valueAt(row,key))}`);
+  return details.length?details.join(' • '):'تم تسجيل الفحص بدون عيوب كمية محددة';
+};
 
 const StatusBadge:React.FC<{status?:unknown}>=({status})=>{const s=String(status??'');const bad=/non|غير|fail|مرفوض/i.test(s);return <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-black ${bad?'bg-rose-50 text-rose-700 border border-rose-200':'bg-emerald-50 text-emerald-700 border border-emerald-200'}`}>{bad?<AlertTriangle className="w-3.5 h-3.5"/>:<CheckCircle2 className="w-3.5 h-3.5"/>}{display(status)}</span>};
 
-const SimpleTable:React.FC<{rows:Record<string,unknown>[];columns:string[]}>=({rows,columns})=><div className="overflow-auto rounded-xl border border-slate-200"><table className="w-full min-w-[760px] text-sm border-collapse"><thead><tr className="bg-slate-50">{columns.map(k=><th key={k} className="border-b border-slate-200 px-3 py-3 text-right font-black text-slate-700 whitespace-nowrap">{label(k)}</th>)}</tr></thead><tbody>{rows.map((r,i)=><tr key={i} className={i%2?'bg-slate-50/40':'bg-white'}>{columns.map(k=><td key={k} className="border-b border-slate-100 px-3 py-3 align-top text-slate-700">{k==='status'||k==='complianceStatus'?<StatusBadge status={r[k]}/>:typeof r[k]==='object'&&r[k]!==null?<span className="text-xs leading-6">{JSON.stringify(r[k])}</span>:display(r[k])}</td>)}</tr>)}</tbody></table></div>;
+const SimpleTable:React.FC<{rows:Record<string,unknown>[];columns:string[]}>=({rows,columns})=><div className="overflow-auto rounded-xl border border-slate-200"><table className="w-full min-w-[760px] text-sm border-collapse"><thead><tr className="bg-slate-50">{columns.map(k=><th key={k} className="border-b border-slate-200 px-3 py-3 text-right font-black text-slate-700 whitespace-nowrap">{label(k)}</th>)}</tr></thead><tbody>{rows.map((r,i)=><tr key={i} className={i%2?'bg-slate-50/40':'bg-white'}>{columns.map(k=>{const v=valueAt(r,k);return <td key={k} className="border-b border-slate-100 px-3 py-3 align-top text-slate-700">{k==='status'||k==='complianceStatus'||k==='compliance_status'?<StatusBadge status={v}/>:typeof v==='object'&&v!==null?<span className="text-xs leading-6">{JSON.stringify(v)}</span>:display(v)}</td>})}</tr>)}</tbody></table></div>;
 
 const renderSectionData=(key:string,data:unknown)=>{
   const rows=asRows(data);
   if(!rows.length) return <div className="py-8 text-center text-slate-400">لا توجد بيانات مسجلة لهذا القسم.</div>;
-  if(key==='defects') return <SimpleTable rows={rows} columns={['date','productName','stage','defectType','description','severity','action','verifiedBy']}/>;
+  if(key==='defects'){
+    const normalized=rows.map(r=>({...r,defect_summary:summarizeDefect(r)}));
+    return <SimpleTable rows={normalized} columns={['date','product_name','stage','time','defect_summary','status','critical_deviation']}/>;
+  }
   if(key==='ipcCompliance') return <SimpleTable rows={rows} columns={['productName','status','reason','savedAt']}/>;
   if(key==='releaseForms'){
-    const normalized=rows.map(r=>({...r,products:Array.isArray(r.products)?(r.products as any[]).map(p=>`${p?.productName??'—'} (${p?.quantity??'—'} ${p?.unit??''})`).join('، '):'—'}));
+    const normalized=rows.map(r=>({...r,products:Array.isArray(r.products)?(r.products as any[]).map(p=>`${p?.productName??p?.product_name??'—'} (${p?.quantity??'—'} ${p?.unit??''})`).join('، '):'—'}));
     return <SimpleTable rows={normalized} columns={['date','day','decision','products','qaReleaseOfficerName','storekeeperName','notes']}/>;
   }
   if(key==='sanitationLogs'){
-    const flat:Record<string,unknown>[]=[];rows.forEach(r=>(Array.isArray(r.items)?r.items:[]).forEach((item:any)=>flat.push({date:r.date,equipmentName:item.equipmentName,equipmentCode:item.equipmentCode,morningShift:item.morningShift?.startShift,eveningShift:item.eveningShift?.startShift})));return flat.length?<SimpleTable rows={flat} columns={['date','equipmentName','equipmentCode','morningShift','eveningShift']}/>:<SimpleTable rows={rows} columns={['date','items']}/>;
+    const flat:Record<string,unknown>[]=[];rows.forEach(r=>(Array.isArray(r.items)?r.items:[]).forEach((item:any)=>flat.push({date:valueAt(r,'date'),equipmentName:item?.equipmentName??item?.equipment_name,equipmentCode:item?.equipmentCode??item?.equipment_code,morningShift:item?.morningShift?.startShift??item?.morning_shift?.startShift,eveningShift:item?.eveningShift?.startShift??item?.evening_shift?.startShift})));return flat.length?<SimpleTable rows={flat} columns={['date','equipmentName','equipmentCode','morningShift','eveningShift']}/>:<SimpleTable rows={rows} columns={['date','items']}/>;
   }
   if(key==='foodSafetyLogs'){
-    const flat:Record<string,unknown>[]=[];rows.forEach(r=>(Array.isArray(r.checks)?r.checks:[]).forEach((c:any)=>flat.push({date:r.date,category:c.category,criterion:c.criterion,morningShift:c.morningShift?.startShift,eveningShift:c.eveningShift?.startShift})));return flat.length?<SimpleTable rows={flat} columns={['date','category','criterion','morningShift','eveningShift']}/>:<SimpleTable rows={rows} columns={['date','checks']}/>;
+    const flat:Record<string,unknown>[]=[];rows.forEach(r=>(Array.isArray(r.checks)?r.checks:[]).forEach((c:any)=>flat.push({date:valueAt(r,'date'),category:c?.category,criterion:c?.criterion,morningShift:c?.morningShift?.startShift??c?.morning_shift?.startShift,eveningShift:c?.eveningShift?.startShift??c?.evening_shift?.startShift})));return flat.length?<SimpleTable rows={flat} columns={['date','category','criterion','morningShift','eveningShift']}/>:<SimpleTable rows={rows} columns={['date','checks']}/>;
   }
   if(key==='sensoryEvaluations') return <SimpleTable rows={rows} columns={['date','productName','sampleCode','score','comments','inspectorName']}/>;
   if(key==='ncr') return <SimpleTable rows={rows} columns={['date','status','responsiblePerson','correctiveAction','verifiedBy','comments']}/>;
@@ -85,7 +112,7 @@ export const ArchivedReportViewer:React.FC<{reportDate:string;status:string;sect
   const sections=Object.entries(snapshot).filter(([k,v])=>hasData(k,v));
   const rowCount=sections.reduce((n,[,v])=>n+(Array.isArray(v)?v.length:1),0);
   const defectRows=asRows(snapshot.defects).length;
-  const nonCompliant=Object.entries(snapshot).reduce((n,[,v])=>n+asRows(v).filter(r=>/non|غير|fail/i.test(String(r.status??r.complianceStatus??''))).length,0);
+  const nonCompliant=Object.entries(snapshot).reduce((n,[,v])=>n+asRows(v).filter(r=>/non|غير|fail/i.test(String(valueAt(r,'status')??valueAt(r,'complianceStatus')??''))).length,0);
   const reportCode='QC-IS-FM-01-06';
   const print=(only?:string)=>{
     const area=only?document.querySelector(`[data-report-key="${only}"]`):document.getElementById('archived-report-print-area');
