@@ -12,6 +12,7 @@
 - إظهار بيانات إذن الإفراج حتى مع القرار قيد الانتظار.
 - عرض أقسام التقرير المؤرشفة التي تحتوي على بيانات فعلية.
 - إصلاح تشغيل Vercel بعد تعديلات نماذج النظافة والتطهير وGHP.
+- إصلاح خطأ TypeScript في archiveService مع الحفاظ على منطق الأرشفة السابق.
 
 ### التشغيل
 ```bash
@@ -20,4 +21,4 @@ npm run dev
 npm run build
 ```
 
-<!-- Vercel deployment trigger: checklist-build-fix-2026-08-25 -->
+<!-- Vercel deployment trigger: archive-service-ts-fix-2026-08-25 -->
