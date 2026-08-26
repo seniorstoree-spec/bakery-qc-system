@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "node scripts/prepareChecklist.js && node scripts/fixChecklistNotes.js && tsc && vite build",
+    "build": "node scripts/prepareChecklist.js && node scripts/fixChecklistNotes.js && node scripts/fixPersistenceSource.js && tsc && vite build",
     "preview": "vite preview"
   },
   "dependencies": {
