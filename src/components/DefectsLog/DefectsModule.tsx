@@ -27,7 +27,7 @@ export const DefectsModule: React.FC = () => {
   const [editingLogId, setEditingLogId] = useState<string | null>(null);
 
   const productList = recipesList
-    .filter(r => r.sectionId === activeSection || !r.sectionId)
+    .filter(r => !r.sectionId || Number(r.sectionId) === Number(activeSection))
     .map(r => r.productName);
 
   const defaultProductName = productList[0] || (activeSection === 1 ? 'كرواسون ساده ميجا' : 'دونتس مفتوح ميجا شيكولاتة');
@@ -132,13 +132,14 @@ export const DefectsModule: React.FC = () => {
     return { status: 'compliant', isCritical: false };
   };
 
-  const handleSaveDefect = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSaveDefect = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
     const evaluation = evaluateStatus(formData);
 
     if (editingLogId) {
       updateDefectLog(editingLogId, {
         ...formData,
+        bakerySection: activeSection,
         status: evaluation.status,
         criticalDeviation: evaluation.isCritical
       });
@@ -146,6 +147,7 @@ export const DefectsModule: React.FC = () => {
     } else {
       addDefectLog({
         ...formData,
+        bakerySection: activeSection,
         status: evaluation.status,
         criticalDeviation: evaluation.isCritical
       });
@@ -199,7 +201,7 @@ export const DefectsModule: React.FC = () => {
   };
 
   const filteredLogs = defectLogs
-    .filter(l => l.bakerySection === activeSection)
+    .filter(l => !l.bakerySection || Number(l.bakerySection) === Number(activeSection))
     .filter(l => activeStageFilter === 'all' || l.stage === activeStageFilter)
     .filter(l => l.productName.includes(searchTerm));
 
@@ -500,7 +502,7 @@ export const DefectsModule: React.FC = () => {
               <button onClick={() => { setIsNewModalOpen(false); setEditingLogId(null); }} className="text-slate-400 p-1">✕</button>
             </div>
 
-            <form onSubmit={handleSaveDefect} className="space-y-4 text-xs">
+            <div className="space-y-4 text-xs">
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
                   <label className="block font-bold mb-1">اسم الصنف</label>
@@ -533,7 +535,6 @@ export const DefectsModule: React.FC = () => {
                   <label className="block font-bold mb-1">حجم العينة المفحوصة</label>
                   <input
                     type="number"
-                    required
                     value={formData.sampleSize}
                     onChange={(e) => setFormData({ ...formData, sampleSize: parseInt(e.target.value) || 100 })}
                     className="w-full bg-slate-50 dark:bg-slate-800 border rounded-xl p-2.5 font-bold font-mono"
@@ -593,14 +594,15 @@ export const DefectsModule: React.FC = () => {
                   إلغاء
                 </button>
                 <button
-                  type="submit"
-                  className="px-5 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-bold flex items-center gap-2"
+                  type="button"
+                  onClick={() => handleSaveDefect()}
+                  className="px-5 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-bold flex items-center gap-2 shadow-md shadow-rose-600/30"
                 >
                   <CheckCircle2 className="w-4 h-4" />
                   <span>{editingLogId ? 'تحديث السجل' : 'حفظ الفحص'}</span>
                 </button>
               </div>
-            </form>
+            </div>
           </div>
         </div>
       )}

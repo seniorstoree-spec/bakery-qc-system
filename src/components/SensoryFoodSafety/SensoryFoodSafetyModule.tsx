@@ -92,8 +92,14 @@ export const SensoryFoodSafetyModule: React.FC = () => {
     return 'ممتاز';
   };
 
-  const handleSaveSensory = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSaveSensory = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+
+    if (!sensoryForm.productName.trim()) {
+      alert('يرجى إدخال اسم الصنف');
+      return;
+    }
+
     const rating = getMatrixRating(sensoryForm.overallImpressionScore);
 
     if (editingSensoryId) {
@@ -101,7 +107,7 @@ export const SensoryFoodSafetyModule: React.FC = () => {
         productName: sensoryForm.productName,
         sampleType: sensoryForm.sampleType,
         isVegan: sensoryForm.isVegan,
-        time: sensoryForm.time,
+        time: sensoryForm.time || new Date().toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' }),
         sampleNumber: sensoryForm.sampleNumber,
         colorScore: sensoryForm.colorScore,
         tasteScore: sensoryForm.tasteScore,
@@ -118,7 +124,7 @@ export const SensoryFoodSafetyModule: React.FC = () => {
         productName: sensoryForm.productName,
         sampleType: sensoryForm.sampleType,
         isVegan: sensoryForm.isVegan,
-        time: sensoryForm.time,
+        time: sensoryForm.time || new Date().toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' }),
         sampleNumber: sensoryForm.sampleNumber,
         colorScore: sensoryForm.colorScore,
         tasteScore: sensoryForm.tasteScore,
@@ -155,8 +161,14 @@ export const SensoryFoodSafetyModule: React.FC = () => {
     setIsSensoryModalOpen(true);
   };
 
-  const handleSaveNCR = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSaveNCR = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+
+    if (!ncrForm.productName.trim()) {
+      alert('يرجى إدخال اسم المنتج');
+      return;
+    }
+
     const pct = Number(((ncrForm.defectiveQty / (ncrForm.productionQty || 1)) * 100).toFixed(2));
 
     if (editingNcrId) {
@@ -232,7 +244,7 @@ export const SensoryFoodSafetyModule: React.FC = () => {
   return (
     <div className="space-y-6 animate-fadeIn pb-12">
       <HeaderBanner
-        title={`التقييم الحسي للأغذية وااشتراطات سلامة الغذاء (GHP & Hygiene)`}
+        title={`التقييم الحسي للأغذية واشتراطات سلامة الغذاء (GHP & Hygiene)`}
         subtitle={`مصفوفة التقييم الحسي MATRIX (1-10)، تقارير عدم المطابقة (NCR)، ومتابعة النظافة والتطهير واشتراطات GHP`}
         docCode={activeTab.startsWith('sensory') ? 'QA-IS-FM-28-04' : activeTab === 'ncr' ? 'QC-IS-FM-01-19' : activeTab === 'sanitation' ? 'QC-IS-FM-01-13' : 'QC-IS-FM-01-07'}
         revNo="1 / 0"
@@ -535,12 +547,11 @@ export const SensoryFoodSafetyModule: React.FC = () => {
               <button onClick={() => { setIsSensoryModalOpen(false); setEditingSensoryId(null); }} className="text-slate-400 p-1">✕</button>
             </div>
 
-            <form onSubmit={handleSaveSensory} className="space-y-4 text-xs">
+            <div className="space-y-4 text-xs">
               <div>
                 <label className="block font-bold mb-1">اسم الصنف</label>
                 <input
                   type="text"
-                  required
                   value={sensoryForm.productName}
                   onChange={(e) => setSensoryForm({ ...sensoryForm, productName: e.target.value })}
                   className="w-full bg-slate-50 dark:bg-slate-800 border rounded-xl p-2.5 font-bold"
@@ -554,7 +565,6 @@ export const SensoryFoodSafetyModule: React.FC = () => {
                     type="number"
                     min="0"
                     max="10"
-                    required
                     value={sensoryForm.colorScore}
                     onChange={(e) => setSensoryForm({ ...sensoryForm, colorScore: parseInt(e.target.value) || 0 })}
                     className="w-full bg-slate-50 dark:bg-slate-800 border rounded-xl p-2 font-bold"
@@ -567,7 +577,6 @@ export const SensoryFoodSafetyModule: React.FC = () => {
                     type="number"
                     min="0"
                     max="10"
-                    required
                     value={sensoryForm.tasteScore}
                     onChange={(e) => setSensoryForm({ ...sensoryForm, tasteScore: parseInt(e.target.value) || 0 })}
                     className="w-full bg-slate-50 dark:bg-slate-800 border rounded-xl p-2 font-bold"
@@ -584,14 +593,15 @@ export const SensoryFoodSafetyModule: React.FC = () => {
                   إلغاء
                 </button>
                 <button
-                  type="submit"
-                  className="px-5 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-bold flex items-center gap-2"
+                  type="button"
+                  onClick={() => handleSaveSensory()}
+                  className="px-5 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-bold flex items-center gap-2 shadow-md shadow-rose-600/30"
                 >
                   <CheckCircle2 className="w-4 h-4" />
                   <span>{editingSensoryId ? 'تحديث الفحص' : 'حفظ الفحص'}</span>
                 </button>
               </div>
-            </form>
+            </div>
           </div>
         </div>
       )}
@@ -607,12 +617,11 @@ export const SensoryFoodSafetyModule: React.FC = () => {
               <button onClick={() => { setIsNcrModalOpen(false); setEditingNcrId(null); }} className="text-slate-400 p-1">✕</button>
             </div>
 
-            <form onSubmit={handleSaveNCR} className="space-y-4 text-xs">
+            <div className="space-y-4 text-xs">
               <div>
                 <label className="block font-bold mb-1">اسم المنتج</label>
                 <input
                   type="text"
-                  required
                   value={ncrForm.productName}
                   onChange={(e) => setNcrForm({ ...ncrForm, productName: e.target.value })}
                   className="w-full bg-slate-50 dark:bg-slate-800 border rounded-xl p-2.5 font-bold"
@@ -623,7 +632,6 @@ export const SensoryFoodSafetyModule: React.FC = () => {
                 <label className="block font-bold mb-1">العيوب المكتشفة</label>
                 <input
                   type="text"
-                  required
                   value={ncrForm.detectedDefects}
                   onChange={(e) => setNcrForm({ ...ncrForm, detectedDefects: e.target.value })}
                   className="w-full bg-slate-50 dark:bg-slate-800 border rounded-xl p-2.5 text-rose-600 font-bold"
@@ -639,14 +647,15 @@ export const SensoryFoodSafetyModule: React.FC = () => {
                   إلغاء
                 </button>
                 <button
-                  type="submit"
-                  className="px-5 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-bold flex items-center gap-2"
+                  type="button"
+                  onClick={() => handleSaveNCR()}
+                  className="px-5 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-bold flex items-center gap-2 shadow-md shadow-rose-600/30"
                 >
                   <CheckCircle2 className="w-4 h-4" />
                   <span>{editingNcrId ? 'تحديث التقرير' : 'حفظ التقرير'}</span>
                 </button>
               </div>
-            </form>
+            </div>
           </div>
         </div>
       )}

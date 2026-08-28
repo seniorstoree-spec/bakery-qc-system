@@ -61,14 +61,14 @@ export const CcpOprpModule: React.FC = () => {
     correctiveAction: ''
   });
 
-  const handleSaveMetal = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSaveMetal = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
     const isCompliant = metalForm.feStatus === 'pass' && metalForm.nfeStatus === 'pass' && metalForm.ssStatus === 'pass';
 
     if (editingMetalId) {
       updateMetalDetectorRecord(editingMetalId, {
-        time: metalForm.time,
-        machineCode: metalForm.machineCode,
+        time: metalForm.time || new Date().toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' }),
+        machineCode: metalForm.machineCode || 'MD-LINE-01',
         feStatus: metalForm.feStatus,
         nfeStatus: metalForm.nfeStatus,
         ssStatus: metalForm.ssStatus,
@@ -80,8 +80,8 @@ export const CcpOprpModule: React.FC = () => {
     } else {
       addMetalDetectorRecord({
         sn: metalDetectorLogs.length + 1,
-        time: metalForm.time,
-        machineCode: metalForm.machineCode,
+        time: metalForm.time || new Date().toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' }),
+        machineCode: metalForm.machineCode || 'MD-LINE-01',
         feStatus: metalForm.feStatus,
         nfeStatus: metalForm.nfeStatus,
         ssStatus: metalForm.ssStatus,
@@ -111,14 +111,20 @@ export const CcpOprpModule: React.FC = () => {
     setIsMetalModalOpen(true);
   };
 
-  const handleSaveSieve = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSaveSieve = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+
+    if (!sieveForm.productName.trim()) {
+      alert('يرجى إدخال اسم الخامة أو المنتج');
+      return;
+    }
+
     const isCompliant = sieveForm.sieveIntegrityCheck === 'سليم وكفء';
 
     if (editingSieveId) {
       updateElectricSieveRecord(editingSieveId, {
         productName: sieveForm.productName,
-        time: sieveForm.time,
+        time: sieveForm.time || new Date().toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' }),
         sieveIntegrityCheck: sieveForm.sieveIntegrityCheck,
         isCompliant,
         responsiblePerson: currentUser.name,
@@ -129,7 +135,7 @@ export const CcpOprpModule: React.FC = () => {
       addElectricSieveRecord({
         sn: electricSieveLogs.length + 1,
         productName: sieveForm.productName,
-        time: sieveForm.time,
+        time: sieveForm.time || new Date().toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' }),
         sieveIntegrityCheck: sieveForm.sieveIntegrityCheck,
         isCompliant,
         responsiblePerson: currentUser.name,
@@ -422,13 +428,12 @@ export const CcpOprpModule: React.FC = () => {
               <button onClick={() => { setIsMetalModalOpen(false); setEditingMetalId(null); }} className="text-slate-400 p-1">✕</button>
             </div>
 
-            <form onSubmit={handleSaveMetal} className="space-y-4 text-xs">
+            <div className="space-y-4 text-xs">
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block font-bold mb-1">الوقت والتوقيت</label>
                   <input
                     type="text"
-                    required
                     value={metalForm.time}
                     onChange={(e) => setMetalForm({ ...metalForm, time: e.target.value })}
                     className="w-full bg-slate-50 dark:bg-slate-800 border rounded-xl p-2.5 font-mono font-bold"
@@ -438,7 +443,6 @@ export const CcpOprpModule: React.FC = () => {
                   <label className="block font-bold mb-1">كود الماكينة</label>
                   <input
                     type="text"
-                    required
                     value={metalForm.machineCode}
                     onChange={(e) => setMetalForm({ ...metalForm, machineCode: e.target.value })}
                     className="w-full bg-slate-50 dark:bg-slate-800 border rounded-xl p-2.5 font-mono"
@@ -493,14 +497,15 @@ export const CcpOprpModule: React.FC = () => {
                   إلغاء
                 </button>
                 <button
-                  type="submit"
-                  className="px-5 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-bold flex items-center gap-2"
+                  type="button"
+                  onClick={() => handleSaveMetal()}
+                  className="px-5 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-bold flex items-center gap-2 shadow-md shadow-rose-600/30"
                 >
                   <CheckCircle2 className="w-4 h-4" />
                   <span>{editingMetalId ? 'تحديث السجل' : 'حفظ الفحص'}</span>
                 </button>
               </div>
-            </form>
+            </div>
           </div>
         </div>
       )}
@@ -516,12 +521,11 @@ export const CcpOprpModule: React.FC = () => {
               <button onClick={() => { setIsSieveModalOpen(false); setEditingSieveId(null); }} className="text-slate-400 p-1">✕</button>
             </div>
 
-            <form onSubmit={handleSaveSieve} className="space-y-4 text-xs">
+            <div className="space-y-4 text-xs">
               <div>
                 <label className="block font-bold mb-1">اسم الخامة / الدقيق / المنتج</label>
                 <input
                   type="text"
-                  required
                   value={sieveForm.productName}
                   onChange={(e) => setSieveForm({ ...sieveForm, productName: e.target.value })}
                   className="w-full bg-slate-50 dark:bg-slate-800 border rounded-xl p-2.5 font-bold"
@@ -533,7 +537,6 @@ export const CcpOprpModule: React.FC = () => {
                   <label className="block font-bold mb-1">الوقت</label>
                   <input
                     type="text"
-                    required
                     value={sieveForm.time}
                     onChange={(e) => setSieveForm({ ...sieveForm, time: e.target.value })}
                     className="w-full bg-slate-50 dark:bg-slate-800 border rounded-xl p-2.5 font-mono"
@@ -571,14 +574,15 @@ export const CcpOprpModule: React.FC = () => {
                   إلغاء
                 </button>
                 <button
-                  type="submit"
-                  className="px-5 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-xl font-bold flex items-center gap-2"
+                  type="button"
+                  onClick={() => handleSaveSieve()}
+                  className="px-5 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-xl font-bold flex items-center gap-2 shadow-md shadow-teal-600/30"
                 >
                   <CheckCircle2 className="w-4 h-4" />
                   <span>{editingSieveId ? 'تحديث الفحص' : 'حفظ الفحص'}</span>
                 </button>
               </div>
-            </form>
+            </div>
           </div>
         </div>
       )}

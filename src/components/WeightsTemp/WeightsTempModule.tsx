@@ -87,8 +87,14 @@ export const WeightsTempModule: React.FC = () => {
     finishedWeightMax: '120'
   });
 
-  const handleSaveTemp = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSaveTemp = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    
+    if (!tempForm.productName.trim()) {
+      alert('يرجى إدخال اسم الصنف');
+      return;
+    }
+
     const tempVal = parseFloat(tempForm.coreTemperature) || 90;
     const isCompliant = tempVal >= (criticalLimits.coreTempMin || 90);
 
@@ -107,8 +113,8 @@ export const WeightsTempModule: React.FC = () => {
       addCoreTemperature({
         sn: coreTemperatures.length + 1,
         productName: tempForm.productName,
-        time: tempForm.time,
-        machineCode: tempForm.machineCode,
+        time: tempForm.time || new Date().toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' }),
+        machineCode: tempForm.machineCode || 'OVEN-01',
         coreTemperature: tempVal,
         isCompliant,
         responsiblePerson: currentUser.name,
@@ -136,8 +142,14 @@ export const WeightsTempModule: React.FC = () => {
     setIsTempModalOpen(true);
   };
 
-  const handleSaveAdditive = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSaveAdditive = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+
+    if (!additiveForm.productName.trim()) {
+      alert('يرجى إدخال اسم المنتج');
+      return;
+    }
+
     const actual = parseFloat(additiveForm.actualWeight_gm) || 0;
     const standard = parseFloat(additiveForm.standardLimit_gm) || 0;
     const isCompliant = actual <= standard;
@@ -161,7 +173,7 @@ export const WeightsTempModule: React.FC = () => {
         productName: additiveForm.productName,
         additiveName: additiveForm.additiveName,
         batchNumber: additiveForm.batchNumber,
-        time: additiveForm.time,
+        time: additiveForm.time || new Date().toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' }),
         actualWeight_gm: actual,
         standardLimit_gm: standard,
         isCompliant,
@@ -191,8 +203,14 @@ export const WeightsTempModule: React.FC = () => {
     setIsAdditiveModalOpen(true);
   };
 
-  const handleSaveWeight = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSaveWeight = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+
+    if (!weightForm.productName.trim()) {
+      alert('يرجى إدخال اسم المنتج');
+      return;
+    }
+
     const d = parseFloat(weightForm.doughWeight) || 0;
     const dMin = parseFloat(weightForm.doughWeightMin) || 0;
     const dMax = parseFloat(weightForm.doughWeightMax) || 0;
@@ -223,7 +241,7 @@ export const WeightsTempModule: React.FC = () => {
     } else {
       addProductWeightSpec({
         productName: weightForm.productName,
-        time: weightForm.time,
+        time: weightForm.time || new Date().toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' }),
         doughWeight: d,
         doughWeightMin: dMin,
         doughWeightMax: dMax,
@@ -260,7 +278,7 @@ export const WeightsTempModule: React.FC = () => {
     setIsWeightModalOpen(true);
   };
 
-  const filteredCoreTemps = coreTemperatures.filter(t => t.bakerySection === activeSection);
+  const filteredCoreTemps = coreTemperatures.filter(t => !t.bakerySection || Number(t.bakerySection) === Number(activeSection));
 
   return (
     <div className="space-y-6 animate-fadeIn pb-12">
@@ -660,12 +678,11 @@ export const WeightsTempModule: React.FC = () => {
               <button onClick={() => { setIsTempModalOpen(false); setEditingTempId(null); }} className="text-slate-400 p-1">✕</button>
             </div>
 
-            <form onSubmit={handleSaveTemp} className="space-y-4 text-xs">
+            <div className="space-y-4 text-xs">
               <div>
                 <label className="block font-bold mb-1">اسم الصنف</label>
                 <input
                   type="text"
-                  required
                   value={tempForm.productName}
                   onChange={(e) => setTempForm({ ...tempForm, productName: e.target.value })}
                   className="w-full bg-slate-50 dark:bg-slate-800 border rounded-xl p-2.5 font-bold"
@@ -677,7 +694,6 @@ export const WeightsTempModule: React.FC = () => {
                   <label className="block font-bold mb-1">الوقت</label>
                   <input
                     type="text"
-                    required
                     value={tempForm.time}
                     onChange={(e) => setTempForm({ ...tempForm, time: e.target.value })}
                     className="w-full bg-slate-50 dark:bg-slate-800 border rounded-xl p-2.5 font-mono"
@@ -688,7 +704,6 @@ export const WeightsTempModule: React.FC = () => {
                   <label className="block font-bold mb-1">كود الماكينة / الفرن</label>
                   <input
                     type="text"
-                    required
                     value={tempForm.machineCode}
                     onChange={(e) => setTempForm({ ...tempForm, machineCode: e.target.value })}
                     className="w-full bg-slate-50 dark:bg-slate-800 border rounded-xl p-2.5 font-mono"
@@ -703,7 +718,6 @@ export const WeightsTempModule: React.FC = () => {
                 <input
                   type="number"
                   step="0.1"
-                  required
                   placeholder="مثال: 94.5"
                   value={tempForm.coreTemperature}
                   onChange={(e) => setTempForm({ ...tempForm, coreTemperature: e.target.value })}
@@ -720,7 +734,6 @@ export const WeightsTempModule: React.FC = () => {
                   <label className="block font-semibold mb-1">الإجراء التصحيحي الفوري المطلوب:</label>
                   <input
                     type="text"
-                    required
                     placeholder="سبب الانحراف والإجراء المتخذ..."
                     value={tempForm.correctiveAction}
                     onChange={(e) => setTempForm({ ...tempForm, correctiveAction: e.target.value })}
@@ -738,14 +751,15 @@ export const WeightsTempModule: React.FC = () => {
                   إلغاء
                 </button>
                 <button
-                  type="submit"
-                  className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold flex items-center gap-2"
+                  type="button"
+                  onClick={() => handleSaveTemp()}
+                  className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold flex items-center gap-2 shadow-md shadow-emerald-600/30"
                 >
                   <CheckCircle2 className="w-4 h-4" />
                   <span>{editingTempId ? 'تحديث وتعديل القياس' : 'حفظ القياس'}</span>
                 </button>
               </div>
-            </form>
+            </div>
           </div>
         </div>
       )}
@@ -761,12 +775,11 @@ export const WeightsTempModule: React.FC = () => {
               <button onClick={() => { setIsAdditiveModalOpen(false); setEditingAdditiveId(null); }} className="text-slate-400 p-1">✕</button>
             </div>
 
-            <form onSubmit={handleSaveAdditive} className="space-y-4 text-xs">
+            <div className="space-y-4 text-xs">
               <div>
                 <label className="block font-bold mb-1">اسم المنتج</label>
                 <input
                   type="text"
-                  required
                   value={additiveForm.productName}
                   onChange={(e) => setAdditiveForm({ ...additiveForm, productName: e.target.value })}
                   className="w-full bg-slate-50 dark:bg-slate-800 border rounded-xl p-2.5 font-bold"
@@ -800,7 +813,6 @@ export const WeightsTempModule: React.FC = () => {
                   <input
                     type="number"
                     step="0.01"
-                    required
                     value={additiveForm.actualWeight_gm}
                     onChange={(e) => setAdditiveForm({ ...additiveForm, actualWeight_gm: e.target.value })}
                     className="w-full bg-slate-50 dark:bg-slate-800 border rounded-xl p-2.5 font-bold text-rose-600"
@@ -826,14 +838,15 @@ export const WeightsTempModule: React.FC = () => {
                   إلغاء
                 </button>
                 <button
-                  type="submit"
-                  className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold flex items-center gap-2"
+                  type="button"
+                  onClick={() => handleSaveAdditive()}
+                  className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold flex items-center gap-2 shadow-md shadow-blue-600/30"
                 >
                   <CheckCircle2 className="w-4 h-4" />
                   <span>{editingAdditiveId ? 'تحديث السجل' : 'حفظ الوزن'}</span>
                 </button>
               </div>
-            </form>
+            </div>
           </div>
         </div>
       )}
@@ -849,12 +862,11 @@ export const WeightsTempModule: React.FC = () => {
               <button onClick={() => { setIsWeightModalOpen(false); setEditingWeightId(null); }} className="text-slate-400 p-1">✕</button>
             </div>
 
-            <form onSubmit={handleSaveWeight} className="space-y-4 text-xs">
+            <div className="space-y-4 text-xs">
               <div>
                 <label className="block font-bold mb-1">اسم المنتج</label>
                 <input
                   type="text"
-                  required
                   value={weightForm.productName}
                   onChange={(e) => setWeightForm({ ...weightForm, productName: e.target.value })}
                   className="w-full bg-slate-50 dark:bg-slate-800 border rounded-xl p-2.5 font-bold"
@@ -866,7 +878,6 @@ export const WeightsTempModule: React.FC = () => {
                   <label className="block font-bold mb-1">وزن العجين (جم)</label>
                   <input
                     type="number"
-                    required
                     value={weightForm.doughWeight}
                     onChange={(e) => setWeightForm({ ...weightForm, doughWeight: e.target.value })}
                     className="w-full bg-slate-50 dark:bg-slate-800 border rounded-xl p-2"
@@ -876,7 +887,6 @@ export const WeightsTempModule: React.FC = () => {
                   <label className="block font-bold mb-1">وزن التسوية (جم)</label>
                   <input
                     type="number"
-                    required
                     value={weightForm.bakedWeight}
                     onChange={(e) => setWeightForm({ ...weightForm, bakedWeight: e.target.value })}
                     className="w-full bg-slate-50 dark:bg-slate-800 border rounded-xl p-2"
@@ -886,7 +896,6 @@ export const WeightsTempModule: React.FC = () => {
                   <label className="block font-bold mb-1">وزن الفنش (جم)</label>
                   <input
                     type="number"
-                    required
                     value={weightForm.finishedWeight}
                     onChange={(e) => setWeightForm({ ...weightForm, finishedWeight: e.target.value })}
                     className="w-full bg-slate-50 dark:bg-slate-800 border rounded-xl p-2 font-bold text-rose-600"
@@ -903,14 +912,15 @@ export const WeightsTempModule: React.FC = () => {
                   إلغاء
                 </button>
                 <button
-                  type="submit"
-                  className="px-5 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-bold flex items-center gap-2"
+                  type="button"
+                  onClick={() => handleSaveWeight()}
+                  className="px-5 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-bold flex items-center gap-2 shadow-md shadow-rose-600/30"
                 >
                   <CheckCircle2 className="w-4 h-4" />
                   <span>{editingWeightId ? 'تحديث السجل' : 'حفظ الأوزان'}</span>
                 </button>
               </div>
-            </form>
+            </div>
           </div>
         </div>
       )}
