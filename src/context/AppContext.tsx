@@ -93,6 +93,7 @@ interface AppContextType {
   // Data records
   operatingParams: OperatingParametersLog[];
   addOperatingParam: (param: Omit<OperatingParametersLog, 'id'>) => void;
+  updateOperatingParam: (id: string, param: Partial<OperatingParametersLog>) => void;
   deleteOperatingParam: (id: string) => void;
   
   defectLogs: DefectItemRow[];
@@ -102,6 +103,7 @@ interface AppContextType {
   
   coreTemperatures: CoreTemperatureRecord[];
   addCoreTemperature: (rec: Omit<CoreTemperatureRecord, 'id'>) => void;
+  updateCoreTemperature: (id: string, rec: Partial<CoreTemperatureRecord>) => void;
   deleteCoreTemperature: (id: string) => void;
   
   metalDetectorLogs: MetalDetectorRecord[];
@@ -111,14 +113,17 @@ interface AppContextType {
   
   electricSieveLogs: ElectricSieveRecord[];
   addElectricSieveRecord: (rec: Omit<ElectricSieveRecord, 'id'>) => void;
+  updateElectricSieveRecord: (id: string, rec: Partial<ElectricSieveRecord>) => void;
   deleteElectricSieveRecord: (id: string) => void;
   
   additiveWeights: AdditiveWeightRecord[];
   addAdditiveWeightRecord: (rec: Omit<AdditiveWeightRecord, 'id'>) => void;
+  updateAdditiveWeightRecord: (id: string, rec: Partial<AdditiveWeightRecord>) => void;
   deleteAdditiveWeightRecord: (id: string) => void;
   
   sensoryEvaluations: SensoryEvaluationRecord[];
   addSensoryEvaluation: (rec: Omit<SensoryEvaluationRecord, 'id'>) => void;
+  updateSensoryEvaluation: (id: string, rec: Partial<SensoryEvaluationRecord>) => void;
   deleteSensoryEvaluation: (id: string) => void;
   
   nonConformanceLogs: NonConformanceRecord[];
@@ -140,6 +145,7 @@ interface AppContextType {
   
   productWeightSpecs: ProductWeightSpecRecord[];
   addProductWeightSpec: (rec: Omit<ProductWeightSpecRecord, 'id'>) => void;
+  updateProductWeightSpec: (id: string, rec: Partial<ProductWeightSpecRecord>) => void;
   deleteProductWeightSpec: (id: string) => void;
   
   // Analytics & Utilities
@@ -152,8 +158,8 @@ interface AppContextType {
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
-const LOCAL_STORAGE_KEY = 'bakery_qc_state_v2';
-const DEV_AUTH_KEY = 'bakery_dev_auth_v2';
+const LOCAL_STORAGE_KEY = 'bakery_qc_state_v3';
+const DEV_AUTH_KEY = 'bakery_dev_auth_v3';
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [activeSection, setActiveSection] = useState<number>(1);
@@ -442,6 +448,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setOperatingParams(prev => [newParam, ...prev]);
   };
 
+  const updateOperatingParam = (id: string, updated: Partial<OperatingParametersLog>) => {
+    setOperatingParams(prev => prev.map(item => item.id === id ? { ...item, ...updated } : item));
+  };
+
   const deleteOperatingParam = (id: string) => {
     setOperatingParams(prev => prev.filter(p => p.id !== id));
   };
@@ -464,6 +474,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const addCoreTemperature = (rec: Omit<CoreTemperatureRecord, 'id'>) => {
     const newRec: CoreTemperatureRecord = { ...rec, id: `ct-${Date.now()}` };
     setCoreTemperatures(prev => [newRec, ...prev]);
+  };
+
+  const updateCoreTemperature = (id: string, updated: Partial<CoreTemperatureRecord>) => {
+    setCoreTemperatures(prev => prev.map(item => item.id === id ? { ...item, ...updated } : item));
   };
 
   const deleteCoreTemperature = (id: string) => {
@@ -490,6 +504,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setElectricSieveLogs(prev => [newRec, ...prev]);
   };
 
+  const updateElectricSieveRecord = (id: string, updated: Partial<ElectricSieveRecord>) => {
+    setElectricSieveLogs(prev => prev.map(item => item.id === id ? { ...item, ...updated } : item));
+  };
+
   const deleteElectricSieveRecord = (id: string) => {
     setElectricSieveLogs(prev => prev.filter(item => item.id !== id));
   };
@@ -500,6 +518,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setAdditiveWeights(prev => [newRec, ...prev]);
   };
 
+  const updateAdditiveWeightRecord = (id: string, updated: Partial<AdditiveWeightRecord>) => {
+    setAdditiveWeights(prev => prev.map(item => item.id === id ? { ...item, ...updated } : item));
+  };
+
   const deleteAdditiveWeightRecord = (id: string) => {
     setAdditiveWeights(prev => prev.filter(item => item.id !== id));
   };
@@ -508,6 +530,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const addSensoryEvaluation = (rec: Omit<SensoryEvaluationRecord, 'id'>) => {
     const newRec: SensoryEvaluationRecord = { ...rec, id: `se-${Date.now()}` };
     setSensoryEvaluations(prev => [newRec, ...prev]);
+  };
+
+  const updateSensoryEvaluation = (id: string, updated: Partial<SensoryEvaluationRecord>) => {
+    setSensoryEvaluations(prev => prev.map(item => item.id === id ? { ...item, ...updated } : item));
   };
 
   const deleteSensoryEvaluation = (id: string) => {
@@ -548,6 +574,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const addProductWeightSpec = (rec: Omit<ProductWeightSpecRecord, 'id'>) => {
     const newRec: ProductWeightSpecRecord = { ...rec, id: `pw-${Date.now()}` };
     setProductWeightSpecs(prev => [newRec, ...prev]);
+  };
+
+  const updateProductWeightSpec = (id: string, updated: Partial<ProductWeightSpecRecord>) => {
+    setProductWeightSpecs(prev => prev.map(item => item.id === id ? { ...item, ...updated } : item));
   };
 
   const deleteProductWeightSpec = (id: string) => {
@@ -714,6 +744,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       deleteRecipe,
       operatingParams,
       addOperatingParam,
+      updateOperatingParam,
       deleteOperatingParam,
       defectLogs,
       addDefectLog,
@@ -721,6 +752,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       deleteDefectLog,
       coreTemperatures,
       addCoreTemperature,
+      updateCoreTemperature,
       deleteCoreTemperature,
       metalDetectorLogs,
       addMetalDetectorRecord,
@@ -728,12 +760,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       deleteMetalDetectorRecord,
       electricSieveLogs,
       addElectricSieveRecord,
+      updateElectricSieveRecord,
       deleteElectricSieveRecord,
       additiveWeights,
       addAdditiveWeightRecord,
+      updateAdditiveWeightRecord,
       deleteAdditiveWeightRecord,
       sensoryEvaluations,
       addSensoryEvaluation,
+      updateSensoryEvaluation,
       deleteSensoryEvaluation,
       nonConformanceLogs,
       addNonConformanceRecord,
@@ -749,6 +784,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       updateReleaseFormB2,
       productWeightSpecs,
       addProductWeightSpec,
+      updateProductWeightSpec,
       deleteProductWeightSpec,
       kpi,
       resetAllData,

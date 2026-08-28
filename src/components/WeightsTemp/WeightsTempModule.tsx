@@ -8,6 +8,7 @@ import {
   Scale, 
   Plus, 
   Trash2, 
+  Edit2,
   CheckCircle2, 
   AlertTriangle, 
   XCircle, 
@@ -22,23 +23,34 @@ export const WeightsTempModule: React.FC = () => {
     activeSection, 
     coreTemperatures, 
     addCoreTemperature, 
+    updateCoreTemperature,
     deleteCoreTemperature,
     additiveWeights,
     addAdditiveWeightRecord,
+    updateAdditiveWeightRecord,
     deleteAdditiveWeightRecord,
     productWeightSpecs,
     addProductWeightSpec,
+    updateProductWeightSpec,
     deleteProductWeightSpec,
     currentUser,
-    activeDate 
+    activeDate,
+    criticalLimits
   } = useApp();
 
   const [activeTab, setActiveTab] = useState<'temp' | 'additives' | 'weights'>('temp');
+  
+  // Modals state
   const [isTempModalOpen, setIsTempModalOpen] = useState(false);
-  const [isAdditiveModalOpen, setIsAdditiveModalOpen] = useState(false);
-  const [isWeightModalOpen, setIsWeightModalOpen] = useState(false);
+  const [editingTempId, setEditingTempId] = useState<string | null>(null);
 
-  // New Core Temp Record State
+  const [isAdditiveModalOpen, setIsAdditiveModalOpen] = useState(false);
+  const [editingAdditiveId, setEditingAdditiveId] = useState<string | null>(null);
+
+  const [isWeightModalOpen, setIsWeightModalOpen] = useState(false);
+  const [editingWeightId, setEditingWeightId] = useState<string | null>(null);
+
+  // New/Edit Core Temp Record State
   const [tempForm, setTempForm] = useState({
     productName: activeSection === 1 ? 'كرواسون ساده' : 'دونتس مفتوح',
     time: new Date().toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' }),
@@ -48,7 +60,7 @@ export const WeightsTempModule: React.FC = () => {
     verifiedBy: 'م. محمد سيف الإسلام'
   });
 
-  // New Additive Weight State
+  // New/Edit Additive Weight State
   const [additiveForm, setAdditiveForm] = useState({
     productName: 'بغاشة',
     additiveName: 'ملح ليمون E330 (0.67 جم / كجم)',
@@ -60,7 +72,7 @@ export const WeightsTempModule: React.FC = () => {
     verifiedBy: 'م. محمد سيف الإسلام'
   });
 
-  // New Product Weight State
+  // New/Edit Product Weight State
   const [weightForm, setWeightForm] = useState({
     productName: 'دونتس مفتوح ميجا (شيكولاتة)',
     time: new Date().toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' }),
@@ -77,78 +89,175 @@ export const WeightsTempModule: React.FC = () => {
 
   const handleSaveTemp = (e: React.FormEvent) => {
     e.preventDefault();
-    const tempVal = parseFloat(tempForm.coreTemperature);
-    const isCompliant = tempVal >= 90;
+    const tempVal = parseFloat(tempForm.coreTemperature) || 90;
+    const isCompliant = tempVal >= (criticalLimits.coreTempMin || 90);
 
-    addCoreTemperature({
-      sn: coreTemperatures.length + 1,
-      productName: tempForm.productName,
-      time: tempForm.time,
-      machineCode: tempForm.machineCode,
-      coreTemperature: tempVal,
-      isCompliant,
-      responsiblePerson: currentUser.name,
-      correctiveAction: isCompliant ? undefined : tempForm.correctiveAction || 'إعادة ضبط حرارة وسرعة السير بالفرن وفحص عينة جديدة',
-      verifiedBy: tempForm.verifiedBy,
-      date: activeDate,
-      bakerySection: activeSection
-    });
+    if (editingTempId) {
+      updateCoreTemperature(editingTempId, {
+        productName: tempForm.productName,
+        time: tempForm.time,
+        machineCode: tempForm.machineCode,
+        coreTemperature: tempVal,
+        isCompliant,
+        responsiblePerson: currentUser.name,
+        correctiveAction: isCompliant ? undefined : tempForm.correctiveAction || 'إعادة ضبط حرارة وسرعة السير بالفرن وفحص عينة جديدة',
+        verifiedBy: tempForm.verifiedBy
+      });
+    } else {
+      addCoreTemperature({
+        sn: coreTemperatures.length + 1,
+        productName: tempForm.productName,
+        time: tempForm.time,
+        machineCode: tempForm.machineCode,
+        coreTemperature: tempVal,
+        isCompliant,
+        responsiblePerson: currentUser.name,
+        correctiveAction: isCompliant ? undefined : tempForm.correctiveAction || 'إعادة ضبط حرارة وسرعة السير بالفرن وفحص عينة جديدة',
+        verifiedBy: tempForm.verifiedBy,
+        date: activeDate,
+        bakerySection: activeSection
+      });
+    }
+
     setIsTempModalOpen(false);
+    setEditingTempId(null);
+  };
+
+  const handleOpenEditTemp = (rec: CoreTemperatureRecord) => {
+    setEditingTempId(rec.id);
+    setTempForm({
+      productName: rec.productName,
+      time: rec.time,
+      machineCode: rec.machineCode,
+      coreTemperature: rec.coreTemperature.toString(),
+      correctiveAction: rec.correctiveAction || '',
+      verifiedBy: rec.verifiedBy || 'م. محمد سيف الإسلام'
+    });
+    setIsTempModalOpen(true);
   };
 
   const handleSaveAdditive = (e: React.FormEvent) => {
     e.preventDefault();
-    const actual = parseFloat(additiveForm.actualWeight_gm);
-    const standard = parseFloat(additiveForm.standardLimit_gm);
+    const actual = parseFloat(additiveForm.actualWeight_gm) || 0;
+    const standard = parseFloat(additiveForm.standardLimit_gm) || 0;
     const isCompliant = actual <= standard;
 
-    addAdditiveWeightRecord({
-      sn: additiveWeights.length + 1,
-      productName: additiveForm.productName,
-      additiveName: additiveForm.additiveName,
-      batchNumber: additiveForm.batchNumber,
-      time: additiveForm.time,
-      actualWeight_gm: actual,
-      standardLimit_gm: standard,
-      isCompliant,
-      responsiblePerson: currentUser.name,
-      correctiveAction: isCompliant ? undefined : additiveForm.correctiveAction,
-      verifiedBy: additiveForm.verifiedBy,
-      date: activeDate
-    });
+    if (editingAdditiveId) {
+      updateAdditiveWeightRecord(editingAdditiveId, {
+        productName: additiveForm.productName,
+        additiveName: additiveForm.additiveName,
+        batchNumber: additiveForm.batchNumber,
+        time: additiveForm.time,
+        actualWeight_gm: actual,
+        standardLimit_gm: standard,
+        isCompliant,
+        responsiblePerson: currentUser.name,
+        correctiveAction: isCompliant ? undefined : additiveForm.correctiveAction,
+        verifiedBy: additiveForm.verifiedBy
+      });
+    } else {
+      addAdditiveWeightRecord({
+        sn: additiveWeights.length + 1,
+        productName: additiveForm.productName,
+        additiveName: additiveForm.additiveName,
+        batchNumber: additiveForm.batchNumber,
+        time: additiveForm.time,
+        actualWeight_gm: actual,
+        standardLimit_gm: standard,
+        isCompliant,
+        responsiblePerson: currentUser.name,
+        correctiveAction: isCompliant ? undefined : additiveForm.correctiveAction,
+        verifiedBy: additiveForm.verifiedBy,
+        date: activeDate
+      });
+    }
+
     setIsAdditiveModalOpen(false);
+    setEditingAdditiveId(null);
+  };
+
+  const handleOpenEditAdditive = (ad: AdditiveWeightRecord) => {
+    setEditingAdditiveId(ad.id);
+    setAdditiveForm({
+      productName: ad.productName,
+      additiveName: ad.additiveName,
+      batchNumber: ad.batchNumber,
+      time: ad.time,
+      actualWeight_gm: ad.actualWeight_gm.toString(),
+      standardLimit_gm: ad.standardLimit_gm.toString(),
+      correctiveAction: ad.correctiveAction || '',
+      verifiedBy: ad.verifiedBy || 'م. محمد سيف الإسلام'
+    });
+    setIsAdditiveModalOpen(true);
   };
 
   const handleSaveWeight = (e: React.FormEvent) => {
     e.preventDefault();
-    const d = parseFloat(weightForm.doughWeight);
-    const dMin = parseFloat(weightForm.doughWeightMin);
-    const dMax = parseFloat(weightForm.doughWeightMax);
-    const b = parseFloat(weightForm.bakedWeight);
-    const bMin = parseFloat(weightForm.bakedWeightMin);
-    const bMax = parseFloat(weightForm.bakedWeightMax);
-    const f = parseFloat(weightForm.finishedWeight);
-    const fMin = parseFloat(weightForm.finishedWeightMin);
-    const fMax = parseFloat(weightForm.finishedWeightMax);
+    const d = parseFloat(weightForm.doughWeight) || 0;
+    const dMin = parseFloat(weightForm.doughWeightMin) || 0;
+    const dMax = parseFloat(weightForm.doughWeightMax) || 0;
+    const b = parseFloat(weightForm.bakedWeight) || 0;
+    const bMin = parseFloat(weightForm.bakedWeightMin) || 0;
+    const bMax = parseFloat(weightForm.bakedWeightMax) || 0;
+    const f = parseFloat(weightForm.finishedWeight) || 0;
+    const fMin = parseFloat(weightForm.finishedWeightMin) || 0;
+    const fMax = parseFloat(weightForm.finishedWeightMax) || 0;
 
     const isCompliant = d >= dMin && d <= dMax && b >= bMin && b <= bMax && f >= fMin && f <= fMax;
 
-    addProductWeightSpec({
-      productName: weightForm.productName,
-      time: weightForm.time,
-      doughWeight: d,
-      doughWeightMin: dMin,
-      doughWeightMax: dMax,
-      bakedWeight: b,
-      bakedWeightMin: bMin,
-      bakedWeightMax: bMax,
-      finishedWeight: f,
-      finishedWeightMin: fMin,
-      finishedWeightMax: fMax,
-      isCompliant,
-      date: activeDate
-    });
+    if (editingWeightId) {
+      updateProductWeightSpec(editingWeightId, {
+        productName: weightForm.productName,
+        time: weightForm.time,
+        doughWeight: d,
+        doughWeightMin: dMin,
+        doughWeightMax: dMax,
+        bakedWeight: b,
+        bakedWeightMin: bMin,
+        bakedWeightMax: bMax,
+        finishedWeight: f,
+        finishedWeightMin: fMin,
+        finishedWeightMax: fMax,
+        isCompliant
+      });
+    } else {
+      addProductWeightSpec({
+        productName: weightForm.productName,
+        time: weightForm.time,
+        doughWeight: d,
+        doughWeightMin: dMin,
+        doughWeightMax: dMax,
+        bakedWeight: b,
+        bakedWeightMin: bMin,
+        bakedWeightMax: bMax,
+        finishedWeight: f,
+        finishedWeightMin: fMin,
+        finishedWeightMax: fMax,
+        isCompliant,
+        date: activeDate
+      });
+    }
+
     setIsWeightModalOpen(false);
+    setEditingWeightId(null);
+  };
+
+  const handleOpenEditWeight = (spec: ProductWeightSpecRecord) => {
+    setEditingWeightId(spec.id);
+    setWeightForm({
+      productName: spec.productName,
+      time: spec.time,
+      doughWeight: spec.doughWeight.toString(),
+      doughWeightMin: spec.doughWeightMin.toString(),
+      doughWeightMax: spec.doughWeightMax.toString(),
+      bakedWeight: spec.bakedWeight.toString(),
+      bakedWeightMin: spec.bakedWeightMin.toString(),
+      bakedWeightMax: spec.bakedWeightMax.toString(),
+      finishedWeight: spec.finishedWeight.toString(),
+      finishedWeightMin: spec.finishedWeightMin.toString(),
+      finishedWeightMax: spec.finishedWeightMax.toString()
+    });
+    setIsWeightModalOpen(true);
   };
 
   const filteredCoreTemps = coreTemperatures.filter(t => t.bakerySection === activeSection);
@@ -210,11 +319,11 @@ export const WeightsTempModule: React.FC = () => {
           <div className="p-4 rounded-2xl bg-gradient-to-r from-emerald-900 to-slate-900 text-white flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-sm">
             <div className="flex items-center gap-3">
               <div className="w-12 h-12 rounded-xl bg-emerald-500/20 border border-emerald-400/40 text-emerald-400 flex items-center justify-center font-bold text-xl shrink-0">
-                ≥ 90°
+                ≥ {criticalLimits.coreTempMin || 90}°
               </div>
               <div>
                 <div className="font-extrabold text-sm md:text-base text-emerald-300">
-                  الحد الحرج الإلزامي لسلامة الغذاء: درجة حرارة مركز المنتج ≥ 90 °م
+                  الحد الحرج الإلزامي لسلامة الغذاء: درجة حرارة مركز المنتج ≥ {criticalLimits.coreTempMin || 90} °م
                 </div>
                 <p className="text-xs text-slate-300 mt-0.5">
                   يتم القياس الفوري فور خروج المنتجات من أفران التسوية أو القلايات بواسطة ترمومتر إلكتروني معاير
@@ -223,7 +332,18 @@ export const WeightsTempModule: React.FC = () => {
             </div>
 
             <button
-              onClick={() => setIsTempModalOpen(true)}
+              onClick={() => {
+                setEditingTempId(null);
+                setTempForm({
+                  productName: activeSection === 1 ? 'كرواسون ساده' : 'دونتس مفتوح',
+                  time: new Date().toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' }),
+                  machineCode: activeSection === 1 ? 'OVEN-01' : 'FRY-01',
+                  coreTemperature: '93.5',
+                  correctiveAction: '',
+                  verifiedBy: 'م. محمد سيف الإسلام'
+                });
+                setIsTempModalOpen(true);
+              }}
               className="px-5 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-md shadow-emerald-500/30 transition-all shrink-0"
             >
               <Plus className="w-4 h-4" />
@@ -254,7 +374,7 @@ export const WeightsTempModule: React.FC = () => {
                     <th className="p-3.5">المسئول</th>
                     <th className="p-3.5">الإجراء التصحيحي</th>
                     <th className="p-3.5">المتحقق</th>
-                    <th className="p-3.5 text-center">إجراء</th>
+                    <th className="p-3.5 text-center">إجراءات</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-slate-800 dark:text-slate-200">
@@ -283,13 +403,22 @@ export const WeightsTempModule: React.FC = () => {
                       <td className="p-3.5 text-slate-500 max-w-xs truncate">{rec.correctiveAction || '-'}</td>
                       <td className="p-3.5 text-slate-700 dark:text-slate-300 font-medium">{rec.verifiedBy || '-'}</td>
                       <td className="p-3.5 text-center">
-                        <button
-                          onClick={() => deleteCoreTemperature(rec.id)}
-                          className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40"
-                          title="حذف"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
+                        <div className="flex items-center justify-center gap-1.5">
+                          <button
+                            onClick={() => handleOpenEditTemp(rec)}
+                            className="p-1.5 rounded-lg text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/40 transition-colors"
+                            title="تعديل السجل"
+                          >
+                            <Edit2 className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => deleteCoreTemperature(rec.id)}
+                            className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
+                            title="حذف السجل"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -323,7 +452,20 @@ export const WeightsTempModule: React.FC = () => {
             </div>
 
             <button
-              onClick={() => setIsAdditiveModalOpen(true)}
+              onClick={() => {
+                setEditingAdditiveId(null);
+                setAdditiveForm({
+                  productName: 'بغاشة',
+                  additiveName: 'ملح ليمون E330 (0.67 جم / كجم)',
+                  batchNumber: `LOT-${new Date().toISOString().slice(0,10).replace(/-/g,'')}-01`,
+                  time: new Date().toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' }),
+                  actualWeight_gm: '0.67',
+                  standardLimit_gm: '0.67',
+                  correctiveAction: '',
+                  verifiedBy: 'م. محمد سيف الإسلام'
+                });
+                setIsAdditiveModalOpen(true);
+              }}
               className="px-5 py-2.5 rounded-xl bg-blue-500 hover:bg-blue-600 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-md shadow-blue-500/30 transition-all shrink-0"
             >
               <Plus className="w-4 h-4" />
@@ -345,7 +487,7 @@ export const WeightsTempModule: React.FC = () => {
                     <th className="p-3.5">الحد القياسي (جم)</th>
                     <th className="p-3.5">المطابقة</th>
                     <th className="p-3.5">المسئول</th>
-                    <th className="p-3.5 text-center">إجراء</th>
+                    <th className="p-3.5 text-center">إجراءات</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-slate-800 dark:text-slate-200">
@@ -369,13 +511,22 @@ export const WeightsTempModule: React.FC = () => {
                       </td>
                       <td className="p-3.5 text-slate-700 dark:text-slate-300 font-medium">{ad.responsiblePerson}</td>
                       <td className="p-3.5 text-center">
-                        <button
-                          onClick={() => deleteAdditiveWeightRecord(ad.id)}
-                          className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40"
-                          title="حذف"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
+                        <div className="flex items-center justify-center gap-1.5">
+                          <button
+                            onClick={() => handleOpenEditAdditive(ad)}
+                            className="p-1.5 rounded-lg text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/40 transition-colors"
+                            title="تعديل السجل"
+                          >
+                            <Edit2 className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => deleteAdditiveWeightRecord(ad.id)}
+                            className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
+                            title="حذف السجل"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -400,7 +551,23 @@ export const WeightsTempModule: React.FC = () => {
               </p>
             </div>
             <button
-              onClick={() => setIsWeightModalOpen(true)}
+              onClick={() => {
+                setEditingWeightId(null);
+                setWeightForm({
+                  productName: 'دونتس مفتوح ميجا (شيكولاتة)',
+                  time: new Date().toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' }),
+                  doughWeight: '80',
+                  doughWeightMin: '75',
+                  doughWeightMax: '85',
+                  bakedWeight: '90',
+                  bakedWeightMin: '85',
+                  bakedWeightMax: '95',
+                  finishedWeight: '112',
+                  finishedWeightMin: '105',
+                  finishedWeightMax: '120'
+                });
+                setIsWeightModalOpen(true);
+              }}
               className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold flex items-center gap-2 shadow-md"
             >
               <Plus className="w-4 h-4" />
@@ -451,12 +618,22 @@ export const WeightsTempModule: React.FC = () => {
                     {spec.isCompliant ? '✓ مطابق للأوزان القياسية' : '✕ انحراف عن الوزن'}
                   </span>
 
-                  <button
-                    onClick={() => deleteProductWeightSpec(spec.id)}
-                    className="text-slate-400 hover:text-rose-600 p-1"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => handleOpenEditWeight(spec)}
+                      className="text-blue-600 hover:bg-blue-50 p-1 rounded-lg"
+                      title="تعديل السجل"
+                    >
+                      <Edit2 className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      onClick={() => deleteProductWeightSpec(spec.id)}
+                      className="text-slate-400 hover:text-rose-600 p-1 rounded-lg"
+                      title="حذف السجل"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
                 </div>
               </div>
             ))}
@@ -464,7 +641,7 @@ export const WeightsTempModule: React.FC = () => {
         </div>
       )}
 
-      {/* Modal: New Core Temp Record */}
+      {/* Modal: Core Temp Record */}
       {isTempModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fadeIn">
           <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl max-w-lg w-full p-6">
@@ -474,11 +651,13 @@ export const WeightsTempModule: React.FC = () => {
                   <Flame className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="font-bold text-base text-slate-900 dark:text-white">تسجيل درجة حرارة مركز المنتج</h3>
-                  <p className="text-xs text-slate-500">الحد الحرج الإلزامي ≥ 90 °م</p>
+                  <h3 className="font-bold text-base text-slate-900 dark:text-white">
+                    {editingTempId ? 'تعديل تسجيل درجة حرارة مركز المنتج' : 'تسجيل درجة حرارة مركز المنتج'}
+                  </h3>
+                  <p className="text-xs text-slate-500">الحد الحرج الإلزامي ≥ {criticalLimits.coreTempMin || 90} °م</p>
                 </div>
               </div>
-              <button onClick={() => setIsTempModalOpen(false)} className="text-slate-400 p-1">✕</button>
+              <button onClick={() => { setIsTempModalOpen(false); setEditingTempId(null); }} className="text-slate-400 p-1">✕</button>
             </div>
 
             <form onSubmit={handleSaveTemp} className="space-y-4 text-xs">
@@ -532,11 +711,11 @@ export const WeightsTempModule: React.FC = () => {
                 />
               </div>
 
-              {parseFloat(tempForm.coreTemperature) < 90 && (
+              {parseFloat(tempForm.coreTemperature) < (criticalLimits.coreTempMin || 90) && (
                 <div className="p-3 bg-rose-50 dark:bg-rose-950 border border-rose-200 rounded-xl text-rose-700 dark:text-rose-300">
                   <div className="font-bold flex items-center gap-1.5 mb-1">
                     <AlertTriangle className="w-4 h-4" />
-                    <span>تحذير: درجة الحرارة أقل من الحد الحرج (90°م)!</span>
+                    <span>تحذير: درجة الحرارة أقل من الحد الحرج ({criticalLimits.coreTempMin || 90}°م)!</span>
                   </div>
                   <label className="block font-semibold mb-1">الإجراء التصحيحي الفوري المطلوب:</label>
                   <input
@@ -553,7 +732,7 @@ export const WeightsTempModule: React.FC = () => {
               <div className="flex justify-end gap-3 pt-3 border-t">
                 <button
                   type="button"
-                  onClick={() => setIsTempModalOpen(false)}
+                  onClick={() => { setIsTempModalOpen(false); setEditingTempId(null); }}
                   className="px-4 py-2 border rounded-xl font-bold"
                 >
                   إلغاء
@@ -563,7 +742,7 @@ export const WeightsTempModule: React.FC = () => {
                   className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold flex items-center gap-2"
                 >
                   <CheckCircle2 className="w-4 h-4" />
-                  <span>حفظ القياس</span>
+                  <span>{editingTempId ? 'تحديث وتعديل القياس' : 'حفظ القياس'}</span>
                 </button>
               </div>
             </form>
@@ -571,13 +750,15 @@ export const WeightsTempModule: React.FC = () => {
         </div>
       )}
 
-      {/* Modal: New Additive Record */}
+      {/* Modal: Additive Record */}
       {isAdditiveModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fadeIn">
           <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl max-w-lg w-full p-6">
             <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3 mb-4">
-              <h3 className="font-bold text-base text-slate-900 dark:text-white">تسجيل وزن مادة مضافة</h3>
-              <button onClick={() => setIsAdditiveModalOpen(false)} className="text-slate-400 p-1">✕</button>
+              <h3 className="font-bold text-base text-slate-900 dark:text-white">
+                {editingAdditiveId ? 'تعديل تسجيل مادة مضافة' : 'تسجيل وزن مادة مضافة'}
+              </h3>
+              <button onClick={() => { setIsAdditiveModalOpen(false); setEditingAdditiveId(null); }} className="text-slate-400 p-1">✕</button>
             </div>
 
             <form onSubmit={handleSaveAdditive} className="space-y-4 text-xs">
@@ -639,7 +820,7 @@ export const WeightsTempModule: React.FC = () => {
               <div className="flex justify-end gap-3 pt-3 border-t">
                 <button
                   type="button"
-                  onClick={() => setIsAdditiveModalOpen(false)}
+                  onClick={() => { setIsAdditiveModalOpen(false); setEditingAdditiveId(null); }}
                   className="px-4 py-2 border rounded-xl font-bold"
                 >
                   إلغاء
@@ -649,7 +830,7 @@ export const WeightsTempModule: React.FC = () => {
                   className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold flex items-center gap-2"
                 >
                   <CheckCircle2 className="w-4 h-4" />
-                  <span>حفظ الوزن</span>
+                  <span>{editingAdditiveId ? 'تحديث السجل' : 'حفظ الوزن'}</span>
                 </button>
               </div>
             </form>
@@ -657,13 +838,15 @@ export const WeightsTempModule: React.FC = () => {
         </div>
       )}
 
-      {/* Modal: New Weight Spec Record */}
+      {/* Modal: Weight Spec Record */}
       {isWeightModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fadeIn">
           <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl max-w-lg w-full p-6">
             <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3 mb-4">
-              <h3 className="font-bold text-base text-slate-900 dark:text-white">تسجيل متابعة أوزان منتج</h3>
-              <button onClick={() => setIsWeightModalOpen(false)} className="text-slate-400 p-1">✕</button>
+              <h3 className="font-bold text-base text-slate-900 dark:text-white">
+                {editingWeightId ? 'تعديل تسجيل أوزان منتج' : 'تسجيل متابعة أوزان منتج'}
+              </h3>
+              <button onClick={() => { setIsWeightModalOpen(false); setEditingWeightId(null); }} className="text-slate-400 p-1">✕</button>
             </div>
 
             <form onSubmit={handleSaveWeight} className="space-y-4 text-xs">
@@ -714,7 +897,7 @@ export const WeightsTempModule: React.FC = () => {
               <div className="flex justify-end gap-3 pt-3 border-t">
                 <button
                   type="button"
-                  onClick={() => setIsWeightModalOpen(false)}
+                  onClick={() => { setIsWeightModalOpen(false); setEditingWeightId(null); }}
                   className="px-4 py-2 border rounded-xl font-bold"
                 >
                   إلغاء
@@ -724,7 +907,7 @@ export const WeightsTempModule: React.FC = () => {
                   className="px-5 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-bold flex items-center gap-2"
                 >
                   <CheckCircle2 className="w-4 h-4" />
-                  <span>حفظ الأوزان</span>
+                  <span>{editingWeightId ? 'تحديث السجل' : 'حفظ الأوزان'}</span>
                 </button>
               </div>
             </form>

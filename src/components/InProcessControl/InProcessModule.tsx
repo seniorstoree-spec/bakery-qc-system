@@ -1,43 +1,41 @@
 import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
-import { BAKERY_1_RECIPES, BAKERY_2_RECIPES } from '../../data/initialData';
-import { RawMaterialRecipe, OperatingParametersLog } from '../../types';
+import { OperatingParametersLog, RawMaterialRecipe } from '../../types';
 import { HeaderBanner } from '../common/HeaderBanner';
 import { 
-  Scale, 
   SlidersHorizontal, 
+  Scale, 
   Plus, 
+  Trash2, 
+  Edit2,
   CheckCircle2, 
   AlertTriangle, 
-  Calculator, 
-  Trash2, 
-  Search, 
-  Layers, 
-  Flame, 
   Clock, 
-  Thermometer, 
-  Droplet,
-  PackageCheck
+  Flame, 
+  Droplet, 
+  Layers, 
+  Maximize2,
+  Check,
+  Search
 } from 'lucide-react';
 
 export const InProcessModule: React.FC = () => {
   const { 
     activeSection, 
+    recipesList,
     operatingParams, 
     addOperatingParam, 
-    deleteOperatingParam, 
-    currentUser,
-    activeDate 
+    updateOperatingParam,
+    deleteOperatingParam,
+    currentUser
   } = useApp();
 
   const [activeTab, setActiveTab] = useState<'recipes' | 'parameters' | 'calculator'>('recipes');
-  const [selectedRecipeIndex, setSelectedRecipeIndex] = useState<number>(0);
-  const [searchTerm, setSearchTerm] = useState<string>('');
-  
-  // Interactive recipe scaling multiplier
+  const [selectedProduct, setSelectedProduct] = useState<string>('');
   const [batchMultiplier, setBatchMultiplier] = useState<number>(1);
+  const [editingLogId, setEditingLogId] = useState<string | null>(null);
 
-  // New Parameter Entry Form State
+  // New/Edit Operating Log State
   const [newLog, setNewLog] = useState<{
     time: string;
     stage: OperatingParametersLog['stage'];
@@ -46,101 +44,114 @@ export const InProcessModule: React.FC = () => {
     duration_min: string;
     sheetingThickness_cm: string;
     glazingConcentration_pct: string;
-    packagingQuality: 'مطابق' | 'غير مطابق';
-    packagingExpiryDate: string;
-    packagingProductionDate: string;
-    packagingValidity: string;
     oilAddedPct: string;
     tpmPct: string;
-    fryerCode: string;
+    packagingQuality: 'مطابق' | 'غير مطابق';
     notes: string;
   }>({
     time: new Date().toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' }),
     stage: 'kneading',
-    productName: activeSection === 1 ? 'كرواسون ساده ميجا' : 'دونتس ميجا مفتوح',
-    temperature: '',
-    duration_min: '',
-    sheetingThickness_cm: '',
-    glazingConcentration_pct: '',
+    productName: '',
+    temperature: '17',
+    duration_min: '15',
+    sheetingThickness_cm: '0.5',
+    glazingConcentration_pct: '63',
+    oilAddedPct: '2.1',
+    tpmPct: '14.5',
     packagingQuality: 'مطابق',
-    packagingExpiryDate: '',
-    packagingProductionDate: activeDate,
-    packagingValidity: '3 شهور',
-    oilAddedPct: '',
-    tpmPct: '',
-    fryerCode: 'FRY-01',
     notes: ''
   });
 
-  const recipes = activeSection === 1 ? BAKERY_1_RECIPES : BAKERY_2_RECIPES;
-  const filteredRecipes = recipes.filter(r => r.productName.includes(searchTerm));
-  const currentRecipe = recipes[selectedRecipeIndex] || recipes[0];
+  const recipes = recipesList.filter(r => r.sectionId === activeSection || !r.sectionId);
+  const currentRecipe = recipes.find(r => r.productName === selectedProduct) || recipes[0];
 
   const sectionLogs = operatingParams.filter(p => p.bakerySection === activeSection);
 
   const handleAddLog = (e: React.FormEvent) => {
     e.preventDefault();
-    
-    // Automatic compliance check
+    const tempVal = newLog.temperature ? parseFloat(newLog.temperature) : undefined;
+    const durVal = newLog.duration_min ? parseFloat(newLog.duration_min) : undefined;
+    const thickVal = newLog.sheetingThickness_cm ? parseFloat(newLog.sheetingThickness_cm) : undefined;
+    const glazeVal = newLog.glazingConcentration_pct ? parseFloat(newLog.glazingConcentration_pct) : undefined;
+    const tpmVal = newLog.tpmPct ? parseFloat(newLog.tpmPct) : undefined;
+    const oilVal = newLog.oilAddedPct ? parseFloat(newLog.oilAddedPct) : undefined;
+
     let isCompliant = true;
-    const temp = newLog.temperature ? parseFloat(newLog.temperature) : undefined;
-    const dur = newLog.duration_min ? parseFloat(newLog.duration_min) : undefined;
-    const thick = newLog.sheetingThickness_cm ? parseFloat(newLog.sheetingThickness_cm) : undefined;
-    const glaze = newLog.glazingConcentration_pct ? parseFloat(newLog.glazingConcentration_pct) : undefined;
-    const tpm = newLog.tpmPct ? parseFloat(newLog.tpmPct) : undefined;
-    const oil = newLog.oilAddedPct ? parseFloat(newLog.oilAddedPct) : undefined;
-
-    if (newLog.stage === 'kneading' && temp !== undefined) {
-      if (temp < 15 || temp > 19) isCompliant = false;
-    }
-    if (newLog.stage === 'baking' && temp !== undefined) {
-      const minTemp = activeSection === 1 ? 160 : 145;
-      const maxTemp = activeSection === 1 ? 205 : 270;
-      if (temp < minTemp || temp > maxTemp) isCompliant = false;
-    }
-    if (newLog.stage === 'sheeting' && thick !== undefined) {
-      const maxThick = activeSection === 1 ? 0.7 : 1.5;
-      if (thick < 0.4 || thick > maxThick) isCompliant = false;
-    }
-    if (newLog.stage === 'frying' && tpm !== undefined && tpm >= 24) {
-      isCompliant = false;
-    }
-    if (newLog.stage === 'frying' && oil !== undefined && (oil < 0.5 || oil > 4.5)) {
-      isCompliant = false;
+    if (newLog.stage === 'kneading') {
+      if (tempVal !== undefined && (tempVal < 15 || tempVal > 19)) isCompliant = false;
+      if (durVal !== undefined && (durVal < 12 || durVal > 20)) isCompliant = false;
+    } else if (newLog.stage === 'sheeting') {
+      if (thickVal !== undefined && (thickVal < 0.4 || thickVal > 1.5)) isCompliant = false;
+    } else if (newLog.stage === 'frying') {
+      if (tpmVal !== undefined && tpmVal >= 24) isCompliant = false;
     }
 
-    addOperatingParam({
-      time: newLog.time,
-      stage: newLog.stage,
-      bakerySection: activeSection,
-      productName: newLog.productName,
-      temperature: temp,
-      duration_min: dur,
-      sheetingThickness_cm: thick,
-      glazingConcentration_pct: glaze,
-      packagingQuality: newLog.packagingQuality,
-      packagingProductionDate: newLog.packagingProductionDate,
-      packagingExpiryDate: newLog.packagingExpiryDate,
-      packagingValidity: newLog.packagingValidity,
-      oilAddedPct: oil,
-      tpmPct: tpm,
-      fryerCode: newLog.fryerCode,
-      isCompliant,
-      notes: newLog.notes || (isCompliant ? 'مطابق للحدود القياسية' : 'انحراف عن المعيار القياسي للتشغيل')
-    });
+    if (editingLogId) {
+      updateOperatingParam(editingLogId, {
+        time: newLog.time,
+        stage: newLog.stage,
+        productName: newLog.productName || currentRecipe?.productName || 'كرواسون',
+        temperature: tempVal,
+        duration_min: durVal,
+        sheetingThickness_cm: thickVal,
+        glazingConcentration_pct: glazeVal,
+        tpmPct: tpmVal,
+        oilAddedPct: oilVal,
+        packagingQuality: newLog.packagingQuality,
+        isCompliant,
+        notes: newLog.notes
+      });
+      setEditingLogId(null);
+    } else {
+      addOperatingParam({
+        time: newLog.time,
+        stage: newLog.stage,
+        productName: newLog.productName || currentRecipe?.productName || 'كرواسون',
+        bakerySection: activeSection,
+        temperature: tempVal,
+        duration_min: durVal,
+        sheetingThickness_cm: thickVal,
+        glazingConcentration_pct: glazeVal,
+        tpmPct: tpmVal,
+        oilAddedPct: oilVal,
+        packagingQuality: newLog.packagingQuality,
+        isCompliant,
+        notes: newLog.notes
+      });
+    }
 
-    // Reset inputs
-    setNewLog(prev => ({
-      ...prev,
-      temperature: '',
-      duration_min: '',
-      sheetingThickness_cm: '',
-      glazingConcentration_pct: '',
-      oilAddedPct: '',
-      tpmPct: '',
+    setNewLog({
+      time: new Date().toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' }),
+      stage: 'kneading',
+      productName: '',
+      temperature: '17',
+      duration_min: '15',
+      sheetingThickness_cm: '0.5',
+      glazingConcentration_pct: '63',
+      oilAddedPct: '2.1',
+      tpmPct: '14.5',
+      packagingQuality: 'مطابق',
       notes: ''
-    }));
+    });
     setActiveTab('parameters');
+  };
+
+  const handleOpenEditLog = (log: OperatingParametersLog) => {
+    setEditingLogId(log.id);
+    setNewLog({
+      time: log.time,
+      stage: log.stage,
+      productName: log.productName,
+      temperature: log.temperature !== undefined ? log.temperature.toString() : '',
+      duration_min: log.duration_min !== undefined ? log.duration_min.toString() : '',
+      sheetingThickness_cm: log.sheetingThickness_cm !== undefined ? log.sheetingThickness_cm.toString() : '',
+      glazingConcentration_pct: log.glazingConcentration_pct !== undefined ? log.glazingConcentration_pct.toString() : '',
+      oilAddedPct: log.oilAddedPct !== undefined ? log.oilAddedPct.toString() : '',
+      tpmPct: log.tpmPct !== undefined ? log.tpmPct.toString() : '',
+      packagingQuality: log.packagingQuality || 'مطابق',
+      notes: log.notes || ''
+    });
+    setActiveTab('calculator');
   };
 
   return (
@@ -180,7 +191,23 @@ export const InProcessModule: React.FC = () => {
         </button>
 
         <button
-          onClick={() => setActiveTab('calculator')}
+          onClick={() => {
+            setEditingLogId(null);
+            setNewLog({
+              time: new Date().toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' }),
+              stage: 'kneading',
+              productName: '',
+              temperature: '17',
+              duration_min: '15',
+              sheetingThickness_cm: '0.5',
+              glazingConcentration_pct: '63',
+              oilAddedPct: '2.1',
+              tpmPct: '14.5',
+              packagingQuality: 'مطابق',
+              notes: ''
+            });
+            setActiveTab('calculator');
+          }}
           className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-all ${
             activeTab === 'calculator'
               ? 'bg-rose-600 text-white shadow-md shadow-rose-600/20'
@@ -188,15 +215,13 @@ export const InProcessModule: React.FC = () => {
           }`}
         >
           <Plus className="w-4 h-4" />
-          <span>تسجيل قياس تشغيلي جديد</span>
+          <span>{editingLogId ? 'تعديل القياس التشغيلي' : 'تسجيل قياس تشغيلي جديد'}</span>
         </button>
       </div>
 
       {/* Tab 1: Recipes Matrix */}
       {activeTab === 'recipes' && (
         <div className="space-y-6">
-          
-          {/* Operating Standard Limits Quick Bar */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 bg-gradient-to-r from-slate-900 to-slate-800 text-white p-4 rounded-2xl shadow-sm">
             <div className="p-3 bg-white/5 rounded-xl border border-white/10">
               <div className="flex items-center gap-2 text-rose-400 text-xs font-bold">
@@ -249,90 +274,53 @@ export const InProcessModule: React.FC = () => {
             </div>
           </div>
 
-          {/* Recipe Selector & Batch Scaling Tool */}
-          <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-              <div className="flex items-center gap-2">
-                <Search className="w-4 h-4 text-slate-400" />
-                <input
-                  type="text"
-                  placeholder="ابحث عن خلطة أو صنف..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-1.5 text-xs text-slate-800 dark:text-slate-200 focus:outline-none focus:border-rose-500 w-56"
-                />
+          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-5 space-y-5">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 dark:border-slate-800 pb-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-500 mb-1">اختر الصنف لعرض الخلطة القياسية:</label>
+                <select
+                  value={selectedProduct || recipes[0]?.productName}
+                  onChange={(e) => setSelectedProduct(e.target.value)}
+                  className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2 text-sm font-bold text-slate-900 dark:text-white"
+                >
+                  {recipes.map(r => (
+                    <option key={r.productName} value={r.productName}>{r.productName}</option>
+                  ))}
+                </select>
               </div>
 
-              {/* Batch multiplier buttons */}
-              <div className="flex items-center gap-2 bg-slate-100 dark:bg-slate-800 p-1.5 rounded-xl text-xs font-bold">
-                <span className="text-slate-500 dark:text-slate-400 px-2">مضاعف العجنة:</span>
-                {[0.5, 1, 2, 3, 5].map((mult) => (
-                  <button
-                    key={mult}
-                    onClick={() => setBatchMultiplier(mult)}
-                    className={`px-2.5 py-1 rounded-lg transition-all ${
-                      batchMultiplier === mult
-                        ? 'bg-rose-600 text-white shadow-sm'
-                        : 'text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
-                    }`}
-                  >
-                    ×{mult}
-                  </button>
-                ))}
+              <div className="flex items-center gap-3">
+                <span className="text-xs font-bold text-slate-600 dark:text-slate-300">مضاعف العجنة:</span>
+                <div className="flex items-center bg-slate-100 dark:bg-slate-800 rounded-xl p-1">
+                  {[1, 2, 3, 4, 5].map((num) => (
+                    <button
+                      key={num}
+                      onClick={() => setBatchMultiplier(num)}
+                      className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${
+                        batchMultiplier === num
+                          ? 'bg-rose-600 text-white shadow-sm'
+                          : 'text-slate-600 dark:text-slate-400'
+                      }`}
+                    >
+                      ×{num}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
 
-            {/* Horizontal Recipe Pills */}
-            <div className="flex items-center gap-2 overflow-x-auto pb-2 custom-scrollbar">
-              {filteredRecipes.map((recipe, idx) => {
-                const isSelected = selectedRecipeIndex === idx;
-                return (
-                  <button
-                    key={recipe.productName}
-                    onClick={() => setSelectedRecipeIndex(idx)}
-                    className={`px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all flex items-center gap-2 border ${
-                      isSelected
-                        ? 'bg-rose-600 text-white border-rose-600 shadow-md shadow-rose-600/20'
-                        : 'bg-slate-50 dark:bg-slate-800/80 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-slate-300'
-                    }`}
-                  >
-                    <span>{recipe.productName}</span>
-                    {recipe.flour_kg && (
-                      <span className="text-[10px] opacity-75">({(recipe.flour_kg * batchMultiplier).toFixed(1)} كجم دقيق)</span>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-
-            {/* Detailed Selected Recipe Card */}
             {currentRecipe && (
-              <div className="bg-slate-50/70 dark:bg-slate-800/40 p-5 rounded-2xl border border-slate-200 dark:border-slate-700 space-y-4">
-                <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-700 pb-3">
-                  <div className="flex items-center gap-2">
-                    <div className="w-10 h-10 rounded-xl bg-rose-100 dark:bg-rose-950 text-rose-600 flex items-center justify-center font-bold">
-                      <Scale className="w-5 h-5" />
-                    </div>
-                    <div>
-                      <h4 className="font-extrabold text-base text-slate-900 dark:text-white">
-                        مكونات عجنة: {currentRecipe.productName}
-                      </h4>
-                      <p className="text-xs text-slate-500 dark:text-slate-400">
-                        القيم المحسوبة لحجم عجنة (مضاعف ×{batchMultiplier})
-                      </p>
-                    </div>
-                  </div>
-                  {currentRecipe.notes && (
-                    <span className="text-xs bg-amber-50 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 px-3 py-1 rounded-xl border border-amber-200 dark:border-amber-800 font-semibold">
-                      {currentRecipe.notes}
-                    </span>
-                  )}
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-base font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
+                    <Scale className="w-5 h-5 text-rose-600" />
+                    <span>مقادير عجين {currentRecipe.productName}</span>
+                  </h4>
                 </div>
 
-                {/* Grid of Raw Materials with precise document values */}
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3 text-xs">
                   {currentRecipe.flour_kg !== undefined && (
-                    <div className="p-3 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
+                    <div className="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-xl border">
                       <div className="text-slate-400 font-medium">دقيق (كجم)</div>
                       <div className="text-base font-black text-rose-600 mt-1">
                         {(currentRecipe.flour_kg * batchMultiplier).toFixed(2)} كجم
@@ -341,7 +329,7 @@ export const InProcessModule: React.FC = () => {
                   )}
 
                   {currentRecipe.butter_kg !== undefined && (
-                    <div className="p-3 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
+                    <div className="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-xl border">
                       <div className="text-slate-400 font-medium">زبدة (كجم)</div>
                       <div className="text-base font-black text-amber-600 mt-1">
                         {(currentRecipe.butter_kg * batchMultiplier).toFixed(2)} كجم
@@ -349,150 +337,31 @@ export const InProcessModule: React.FC = () => {
                     </div>
                   )}
 
-                  {currentRecipe.pasteurized_eggs_kg !== undefined && (
-                    <div className="p-3 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
-                      <div className="text-slate-400 font-medium">بيض مبستر (كجم)</div>
-                      <div className="text-base font-black text-amber-700 mt-1">
-                        {(currentRecipe.pasteurized_eggs_kg * batchMultiplier).toFixed(2)} كجم
-                      </div>
-                    </div>
-                  )}
-
-                  {currentRecipe.powdered_milk_kg !== undefined && (
-                    <div className="p-3 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
-                      <div className="text-slate-400 font-medium">لبن بودرة (كجم)</div>
-                      <div className="text-base font-black text-blue-600 mt-1">
-                        {(currentRecipe.powdered_milk_kg * batchMultiplier).toFixed(2)} كجم
-                      </div>
-                    </div>
-                  )}
-
-                  {currentRecipe.sugar_kg !== undefined && (
-                    <div className="p-3 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
-                      <div className="text-slate-400 font-medium">سكر (كجم)</div>
-                      <div className="text-base font-black text-purple-600 mt-1">
-                        {(currentRecipe.sugar_kg * batchMultiplier).toFixed(2)} كجم
-                      </div>
-                    </div>
-                  )}
-
-                  {currentRecipe.salt_gm !== undefined && (
-                    <div className="p-3 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
-                      <div className="text-slate-400 font-medium">ملح (جم)</div>
-                      <div className="text-base font-black text-slate-700 dark:text-slate-200 mt-1">
-                        {(currentRecipe.salt_gm * batchMultiplier).toLocaleString('ar-EG')} جم
-                      </div>
-                    </div>
-                  )}
-
-                  {currentRecipe.yeast_gm !== undefined && (
-                    <div className="p-3 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
-                      <div className="text-slate-400 font-medium">خميرة (جم)</div>
-                      <div className="text-base font-black text-emerald-600 mt-1">
-                        {(currentRecipe.yeast_gm * batchMultiplier).toLocaleString('ar-EG')} جم
-                      </div>
-                    </div>
-                  )}
-
-                  {currentRecipe.improver_gm !== undefined && (
-                    <div className="p-3 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
-                      <div className="text-slate-400 font-medium">محسن (جم)</div>
-                      <div className="text-base font-black text-teal-600 mt-1">
-                        {(currentRecipe.improver_gm * batchMultiplier).toLocaleString('ar-EG')} جم
-                      </div>
-                    </div>
-                  )}
-
-                  {currentRecipe.softener_gm !== undefined && (
-                    <div className="p-3 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
-                      <div className="text-slate-400 font-medium">مطري (جم)</div>
-                      <div className="text-base font-black text-cyan-600 mt-1">
-                        {(currentRecipe.softener_gm * batchMultiplier).toLocaleString('ar-EG')} جم
-                      </div>
-                    </div>
-                  )}
-
-                  {currentRecipe.gluten_kg !== undefined && (
-                    <div className="p-3 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
-                      <div className="text-slate-400 font-medium">جلوتين (كجم/جم)</div>
-                      <div className="text-base font-black text-indigo-600 mt-1">
-                        {(currentRecipe.gluten_kg * batchMultiplier).toFixed(2)}
-                      </div>
-                    </div>
-                  )}
-
-                  {currentRecipe.oil_L !== undefined && (
-                    <div className="p-3 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
-                      <div className="text-slate-400 font-medium">زيت (لتر)</div>
-                      <div className="text-base font-black text-amber-500 mt-1">
-                        {(currentRecipe.oil_L * batchMultiplier).toFixed(2)} لتر
-                      </div>
-                    </div>
-                  )}
-
                   {currentRecipe.water_ice_L !== undefined && (
-                    <div className="p-3 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
+                    <div className="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-xl border">
                       <div className="text-slate-400 font-medium">ماء + ثلج (لتر)</div>
                       <div className="text-base font-black text-blue-500 mt-1">
                         {(currentRecipe.water_ice_L * batchMultiplier).toFixed(1)} لتر
                       </div>
                     </div>
                   )}
-
-                  {currentRecipe.debris_kg !== undefined && (
-                    <div className="p-3 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
-                      <div className="text-slate-400 font-medium">دبري (كجم)</div>
-                      <div className="text-base font-black text-orange-600 mt-1">
-                        {(currentRecipe.debris_kg * batchMultiplier).toFixed(1)} كجم
-                      </div>
-                    </div>
-                  )}
-
-                  {currentRecipe.polish_kg !== undefined && (
-                    <div className="p-3 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
-                      <div className="text-slate-400 font-medium">بوليش (كجم)</div>
-                      <div className="text-base font-black text-pink-600 mt-1">
-                        {(currentRecipe.polish_kg * batchMultiplier).toFixed(1)} كجم
-                      </div>
-                    </div>
-                  )}
-
-                  {currentRecipe.broken_ghorayeba_kg !== undefined && (
-                    <div className="p-3 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
-                      <div className="text-slate-400 font-medium">كسر غريبة (كجم)</div>
-                      <div className="text-base font-black text-amber-800 mt-1">
-                        {(currentRecipe.broken_ghorayeba_kg * batchMultiplier).toFixed(1)} كجم
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Custom Fields if any */}
-                  {currentRecipe.customFields && Object.entries(currentRecipe.customFields).map(([k, v]) => (
-                    <div key={k} className="p-3 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
-                      <div className="text-slate-400 font-medium">{k}</div>
-                      <div className="text-base font-black text-rose-600 mt-1">
-                        {v}
-                      </div>
-                    </div>
-                  ))}
                 </div>
               </div>
             )}
           </div>
-
         </div>
       )}
 
-      {/* Tab 2: Operating Parameters Log */}
+      {/* Tab 2: Operational Parameters Table */}
       {activeTab === 'parameters' && (
         <div className="space-y-4">
           <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm">
             <div className="p-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
               <h3 className="font-bold text-sm md:text-base text-slate-900 dark:text-white flex items-center gap-2">
                 <SlidersHorizontal className="w-5 h-5 text-rose-600" />
-                <span>سجل متابعة عوامل التشغيل (مخبوزات {activeSection})</span>
+                <span>سجل متابعة عوامل التشغيل اليومية - قسم المخبوزات {activeSection}</span>
               </h3>
-              <span className="text-xs text-slate-500">إجمالي التسجيلات: {sectionLogs.length}</span>
+              <span className="text-xs text-slate-500">عدد القياسات: {sectionLogs.length}</span>
             </div>
 
             <div className="overflow-x-auto">
@@ -504,15 +373,15 @@ export const InProcessModule: React.FC = () => {
                     <th className="p-3.5">الصنف</th>
                     <th className="p-3.5">درجة الحرارة / السمك</th>
                     <th className="p-3.5">المدة (دقيقة)</th>
-                    <th className="p-3.5">المعايير الإضافية (تلميع / زيت)</th>
-                    <th className="p-3.5">الحالة الرقابية</th>
+                    <th className="p-3.5">التلميع / الزيت / التغليف</th>
+                    <th className="p-3.5">المطابقة</th>
                     <th className="p-3.5">ملاحظات</th>
-                    <th className="p-3.5 text-center">إجراء</th>
+                    <th className="p-3.5 text-center">إجراءات</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-slate-800 dark:text-slate-200">
                   {sectionLogs.map((log) => {
-                    const stageNames = {
+                    const stageNames: Record<string, string> = {
                       kneading: 'العجن',
                       sheeting: 'الفرد والتبنيط',
                       flattening: 'التشكيل',
@@ -537,39 +406,40 @@ export const InProcessModule: React.FC = () => {
                         </td>
                         <td className="p-3.5">
                           {log.glazingConcentration_pct !== undefined && <span>تركيز التلميع: {log.glazingConcentration_pct}%</span>}
-                          {log.tpmPct !== undefined && <span>TPM: {log.tpmPct}% | زيت: {log.oilAddedPct}%</span>}
-                          {log.packagingQuality && <span>جودة الغلاف: {log.packagingQuality}</span>}
+                          {log.tpmPct !== undefined && <span>TPM: {log.tpmPct}%</span>}
+                          {log.packagingQuality && <span>الغلاف: {log.packagingQuality}</span>}
                         </td>
                         <td className="p-3.5">
                           <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold ${
                             log.isCompliant
-                              ? 'bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800'
-                              : 'bg-rose-50 dark:bg-rose-950 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800'
+                              ? 'bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 border border-emerald-200'
+                              : 'bg-rose-50 dark:bg-rose-950 text-rose-700 dark:text-rose-300 border border-rose-200'
                           }`}>
-                            {log.isCompliant ? <CheckCircle2 className="w-3 h-3 text-emerald-600" /> : <AlertTriangle className="w-3 h-3 text-rose-600" />}
-                            <span>{log.isCompliant ? 'مطابق' : 'غير مطابق'}</span>
+                            {log.isCompliant ? 'مطابق' : 'غير مطابق'}
                           </span>
                         </td>
                         <td className="p-3.5 text-slate-500 dark:text-slate-400 max-w-xs truncate">{log.notes || '-'}</td>
                         <td className="p-3.5 text-center">
-                          <button
-                            onClick={() => deleteOperatingParam(log.id)}
-                            className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
-                            title="حذف التسجيل"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
+                          <div className="flex items-center justify-center gap-1.5">
+                            <button
+                              onClick={() => handleOpenEditLog(log)}
+                              className="p-1.5 rounded-lg text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/40 transition-colors"
+                              title="تعديل السجل"
+                            >
+                              <Edit2 className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => deleteOperatingParam(log.id)}
+                              className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
+                              title="حذف التسجيل"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     );
                   })}
-                  {sectionLogs.length === 0 && (
-                    <tr>
-                      <td colSpan={9} className="p-8 text-center text-slate-400 font-medium">
-                        لا توجد تسجيلات تشغيلية مسجلة بعد لهذا القسم اليوم.
-                      </td>
-                    </tr>
-                  )}
                 </tbody>
               </table>
             </div>
@@ -583,192 +453,66 @@ export const InProcessModule: React.FC = () => {
           <div className="border-b border-slate-100 dark:border-slate-800 pb-4">
             <h3 className="font-extrabold text-base text-slate-900 dark:text-white flex items-center gap-2">
               <Plus className="w-5 h-5 text-rose-600" />
-              <span>تسجيل قياس جديد لعوامل التشغيل - قسم المخبوزات {activeSection}</span>
+              <span>{editingLogId ? 'تعديل قياس عوامل التشغيل' : 'تسجيل قياس جديد لعوامل التشغيل'}</span>
             </h3>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-              إدخال درجات الحرارة والأزمنة وسماكة العجين وتركيز التلميع مع فحص المطابقة الفوري
-            </p>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 text-xs">
-            
-            {/* Time */}
             <div>
-              <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1.5">الوقت</label>
+              <label className="block font-bold mb-1">الوقت</label>
               <input
                 type="text"
                 required
                 value={newLog.time}
                 onChange={(e) => setNewLog({ ...newLog, time: e.target.value })}
-                className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-2.5 text-xs text-slate-800 dark:text-slate-200 focus:outline-none focus:border-rose-500"
+                className="w-full bg-slate-50 dark:bg-slate-800 border rounded-xl p-2.5 font-mono font-bold"
               />
             </div>
 
-            {/* Stage */}
             <div>
-              <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1.5">مرحلة التشغيل</label>
+              <label className="block font-bold mb-1">اسم الصنف</label>
+              <input
+                type="text"
+                required
+                placeholder="اسم المنتج..."
+                value={newLog.productName}
+                onChange={(e) => setNewLog({ ...newLog, productName: e.target.value })}
+                className="w-full bg-slate-50 dark:bg-slate-800 border rounded-xl p-2.5 font-bold"
+              />
+            </div>
+
+            <div>
+              <label className="block font-bold mb-1">مرحلة التشغيل</label>
               <select
                 value={newLog.stage}
                 onChange={(e) => setNewLog({ ...newLog, stage: e.target.value as any })}
-                className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-2.5 text-xs text-slate-800 dark:text-slate-200 focus:outline-none focus:border-rose-500"
+                className="w-full bg-slate-50 dark:bg-slate-800 border rounded-xl p-2.5 font-bold"
               >
                 <option value="kneading">العجن (Kneading)</option>
                 <option value="sheeting">الفرد والتبنيط (Sheeting)</option>
                 <option value="flattening">التشكيل (Forming)</option>
                 <option value="baking">التسوية بالفرن (Baking)</option>
                 <option value="glazing">التلميع (Glazing)</option>
-                <option value="frying">القلي (Frying - Bakery 2)</option>
+                <option value="frying">القلي (Frying)</option>
                 <option value="packaging">التغليف (Packaging)</option>
-                <option value="quick_freezing">التجميد السريع (Quick Freezing)</option>
               </select>
             </div>
-
-            {/* Product Name */}
-            <div>
-              <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1.5">اسم الصنف</label>
-              <select
-                value={newLog.productName}
-                onChange={(e) => setNewLog({ ...newLog, productName: e.target.value })}
-                className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-2.5 text-xs text-slate-800 dark:text-slate-200 focus:outline-none focus:border-rose-500"
-              >
-                {recipes.map(r => (
-                  <option key={r.productName} value={r.productName}>{r.productName}</option>
-                ))}
-              </select>
-            </div>
-
-            {/* Temperature */}
-            {(newLog.stage === 'kneading' || newLog.stage === 'baking' || newLog.stage === 'frying' || newLog.stage === 'quick_freezing') && (
-              <div>
-                <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-                  درجة الحرارة (°م)
-                  {newLog.stage === 'kneading' && <span className="text-slate-400 font-normal"> (القياسي 15:19°C)</span>}
-                  {newLog.stage === 'baking' && <span className="text-slate-400 font-normal"> ({activeSection === 1 ? '160:205°C' : '145:270°C'})</span>}
-                </label>
-                <input
-                  type="number"
-                  step="0.5"
-                  placeholder="مثال: 18"
-                  value={newLog.temperature}
-                  onChange={(e) => setNewLog({ ...newLog, temperature: e.target.value })}
-                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-2.5 text-xs text-slate-800 dark:text-slate-200 focus:outline-none focus:border-rose-500"
-                />
-              </div>
-            )}
-
-            {/* Duration */}
-            {(newLog.stage === 'kneading' || newLog.stage === 'baking') && (
-              <div>
-                <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-                  الوقت / المدة (بالدقائق)
-                  {newLog.stage === 'kneading' && <span className="text-slate-400 font-normal"> (12 : 20 min)</span>}
-                  {newLog.stage === 'baking' && <span className="text-slate-400 font-normal"> ({activeSection === 1 ? '6 : 40 min' : '5 : 28 min'})</span>}
-                </label>
-                <input
-                  type="number"
-                  placeholder="مثال: 15"
-                  value={newLog.duration_min}
-                  onChange={(e) => setNewLog({ ...newLog, duration_min: e.target.value })}
-                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-2.5 text-xs text-slate-800 dark:text-slate-200 focus:outline-none focus:border-rose-500"
-                />
-              </div>
-            )}
-
-            {/* Sheeting Thickness */}
-            {newLog.stage === 'sheeting' && (
-              <div>
-                <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-                  سمك العجين (سم)
-                  <span className="text-slate-400 font-normal"> ({activeSection === 1 ? '0.4 : 0.7 cm' : '0.4 : 1.5 cm'})</span>
-                </label>
-                <input
-                  type="number"
-                  step="0.05"
-                  placeholder="مثال: 0.5"
-                  value={newLog.sheetingThickness_cm}
-                  onChange={(e) => setNewLog({ ...newLog, sheetingThickness_cm: e.target.value })}
-                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-2.5 text-xs text-slate-800 dark:text-slate-200 focus:outline-none focus:border-rose-500"
-                />
-              </div>
-            )}
-
-            {/* Glazing */}
-            {newLog.stage === 'glazing' && (
-              <div>
-                <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-                  تركيز التلميع %
-                  <span className="text-slate-400 font-normal"> (بغاشة 73-75% / دانش 60-65%)</span>
-                </label>
-                <input
-                  type="number"
-                  placeholder="مثال: 62"
-                  value={newLog.glazingConcentration_pct}
-                  onChange={(e) => setNewLog({ ...newLog, glazingConcentration_pct: e.target.value })}
-                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-2.5 text-xs text-slate-800 dark:text-slate-200 focus:outline-none focus:border-rose-500"
-                />
-              </div>
-            )}
-
-            {/* Frying TPM & Oil */}
-            {newLog.stage === 'frying' && (
-              <>
-                <div>
-                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-                    نسبة TPM للزيت % (أقل من 24%)
-                  </label>
-                  <input
-                    type="number"
-                    step="0.1"
-                    placeholder="مثال: 15.2"
-                    value={newLog.tpmPct}
-                    onChange={(e) => setNewLog({ ...newLog, tpmPct: e.target.value })}
-                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-2.5 text-xs text-slate-800 dark:text-slate-200 focus:outline-none focus:border-rose-500"
-                  />
-                </div>
-                <div>
-                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-                    نسبة الزيت المضافة للتخفيف % (0.5 - 4.5)%
-                  </label>
-                  <input
-                    type="number"
-                    step="0.1"
-                    placeholder="مثال: 2.0"
-                    value={newLog.oilAddedPct}
-                    onChange={(e) => setNewLog({ ...newLog, oilAddedPct: e.target.value })}
-                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-2.5 text-xs text-slate-800 dark:text-slate-200 focus:outline-none focus:border-rose-500"
-                  />
-                </div>
-              </>
-            )}
-
-            {/* Notes */}
-            <div className="sm:col-span-2 md:col-span-3">
-              <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1.5">ملاحظات الفاحص والتشغيل</label>
-              <input
-                type="text"
-                placeholder="أية ملاحظات إضافية أثناء التشغيل..."
-                value={newLog.notes}
-                onChange={(e) => setNewLog({ ...newLog, notes: e.target.value })}
-                className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-2.5 text-xs text-slate-800 dark:text-slate-200 focus:outline-none focus:border-rose-500"
-              />
-            </div>
-
           </div>
 
-          <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100 dark:border-slate-800">
+          <div className="flex justify-end gap-3 pt-4 border-t">
             <button
               type="button"
-              onClick={() => setActiveTab('parameters')}
-              className="px-5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 font-bold hover:bg-slate-50 text-xs"
+              onClick={() => { setEditingLogId(null); setActiveTab('parameters'); }}
+              className="px-4 py-2 border rounded-xl font-bold text-xs"
             >
               إلغاء
             </button>
             <button
               type="submit"
-              className="px-6 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold shadow-md shadow-rose-600/20 text-xs flex items-center gap-2"
+              className="px-5 py-2.5 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-xl text-xs flex items-center gap-2"
             >
               <CheckCircle2 className="w-4 h-4" />
-              <span>حفظ القياس والتحقق</span>
+              <span>{editingLogId ? 'تحديث السجل' : 'حفظ القياس'}</span>
             </button>
           </div>
         </form>
