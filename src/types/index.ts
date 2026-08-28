@@ -1,5 +1,5 @@
 // Role-Based Access Control (RBAC) Types
-export type UserRole = 'quality_engineer' | 'quality_manager' | 'production_supervisor' | 'system_admin';
+export type UserRole = 'quality_engineer' | 'quality_manager' | 'production_supervisor' | 'system_admin' | 'developer';
 
 export interface UserProfile {
   id: string;
@@ -15,147 +15,208 @@ export interface UserProfile {
     canManageUsers: boolean;
     canExportReports: boolean;
     canSignOff: boolean;
+    isDeveloperSuperAdmin?: boolean;
+  };
+}
+
+// Section Definition for Dynamic Section Management
+export interface BakerySectionDef {
+  id: number;
+  name: string;
+  subtitle: string;
+  description: string;
+  iconName?: string;
+}
+
+// Global Configurable Critical Limits & Standard Parameters
+export interface CriticalLimitsConfig {
+  coreTempMin: number; // default 90 °C
+  metalDetector: {
+    fe_mm: number; // default 2.5
+    nfe_mm: number; // default 3.0
+    ss_mm: number; // default 3.5
+  };
+  sieveMeshMicrons: number; // default 600
+  kneading: {
+    minTemp: number; // 15
+    maxTemp: number; // 19
+    minDuration: number; // 12
+    maxDuration: number; // 20
+  };
+  baking: {
+    b1_minTemp: number; // 160
+    b1_maxTemp: number; // 205
+    b1_minDuration: number; // 6
+    b1_maxDuration: number; // 40
+    b2_minTemp: number; // 145
+    b2_maxTemp: number; // 270
+    b2_minDuration: number; // 5
+    b2_maxDuration: number; // 28
+  };
+  sheeting: {
+    b1_minThickness: number; // 0.4
+    b1_maxThickness: number; // 0.7
+    b2_minThickness: number; // 0.4
+    b2_maxThickness: number; // 1.5
+    croissantLaminationPct: number; // 29%
+    pateLaminationPct: number; // 23%
+  };
+  glazing: {
+    honeySyrupMinPct: number; // 73%
+    honeySyrupMaxPct: number; // 75%
+    apricotJamMinPct: number; // 60%
+    apricotJamMaxPct: number; // 65%
+  };
+  frying: {
+    tpmMaxPct: number; // 24%
+    oilAdditionMinPct: number; // 0.5%
+    oilAdditionMaxPct: number; // 4.5%
+  };
+  defectLimits: {
+    sizeAndWeightMaxPct: number; // 5%
+    colorAndGlazeMaxPct: number; // 5%
+    textureAndFillingMaxPct: number; // 3%
+    criticalZeroDefectsAllowedPct: number; // 0%
   };
 }
 
 // In-Process Control (IPC) Types
 export interface RawMaterialRecipe {
+  id?: string;
+  sectionId: number; // 1, 2, or custom section id
   productName: string;
-  flour_kg?: number; // دقيق (كجم)
-  butter_kg?: number; // زبدة (كجم)
-  pasteurized_eggs_kg?: number; // بيض مبستر (كجم)
-  powdered_milk_kg?: number; // لبن بودرة (كجم)
-  sugar_kg?: number; // سكر (كجم)
-  salt_gm?: number; // ملح (جم)
-  yeast_gm?: number; // خميرة (جم)
-  improver_gm?: number; // محسن (جم)
-  softener_gm?: number; // مطري (جم)
-  gluten_kg?: number; // جلوتين (كجم)
-  oil_L?: number; // زيت (لتر)
-  water_ice_L?: number; // ماء + ثلج (لتر)
-  debris_kg?: number; // دبري (كجم)
-  polish_kg?: number; // بوليش (كجم)
-  broken_ghorayeba_kg?: number; // كسر غريبة (كجم)
+  flour_kg?: number;
+  butter_kg?: number;
+  pasteurized_eggs_kg?: number;
+  powdered_milk_kg?: number;
+  sugar_kg?: number;
+  salt_gm?: number;
+  yeast_gm?: number;
+  improver_gm?: number;
+  softener_gm?: number;
+  gluten_kg?: number;
+  oil_L?: number;
+  water_ice_L?: number;
+  debris_kg?: number;
+  polish_kg?: number;
+  broken_ghorayeba_kg?: number;
   notes?: string;
-  // Specific recipe additions
   customFields?: { [key: string]: string | number };
 }
 
 export interface OperatingParametersLog {
   id: string;
-  time: string; // 06:00 AM, 07:00 AM, ...
+  time: string;
   stage: 'kneading' | 'sheeting' | 'flattening' | 'baking' | 'glazing' | 'packaging' | 'quick_freezing' | 'frying';
-  bakerySection: 1 | 2;
+  bakerySection: number;
   productName: string;
   temperature?: number;
   duration_min?: number;
   doughProductionDate?: string;
   debrisProductionDate?: string;
-  sheetingThickness_cm?: number; // e.g. 0.4:0.7 cm or 0.4:1.5 cm
-  glazingConcentration_pct?: number; // e.g. 73-75% for honey syrup, 60-65% for apricot jam
+  sheetingThickness_cm?: number;
+  glazingConcentration_pct?: number;
   packagingQuality?: 'مطابق' | 'غير مطابق';
   packagingExpiryDate?: string;
   packagingProductionDate?: string;
   packagingValidity?: string;
-  oilAddedPct?: number; // 0.5 - 4.5%
-  tpmPct?: number; // < 24
+  oilAddedPct?: number;
+  tpmPct?: number;
   fryerCode?: string;
   isCompliant: boolean;
   notes?: string;
 }
 
-// Defect Logging Types (Daily Quality Defect Log - Pages 2-5, 20-22)
+// Defect Logging Types
 export type ProductionStage = 'start' | 'mid' | 'end' | 'unplanned';
 
 export interface DefectItemRow {
   id: string;
   productName: string;
-  bakerySection: 1 | 2;
+  bakerySection: number;
   stage: ProductionStage;
   time: string;
-  requiredProductionQty: number; // كمية الإنتاج المطلوبة
-  sampleSize: number; // كمية العينة
+  requiredProductionQty: number;
+  sampleSize: number;
   
-  // Defect metrics (Count of defective pieces or % calculated)
   // حجم القطع (Limit: 5%)
-  oversize: number; // حجم زائد
-  undersize: number; // حجم أقل
+  oversize: number;
+  undersize: number;
   
   // الأوزان (Limit: 5%)
-  overweight: number; // وزن زيادة
-  underweight: number; // وزن أقل
+  overweight: number;
+  underweight: number;
   
   // التسوية (Limit: 5% for color, 0% for burnt)
-  darkColor: number; // لون داكن (<=5%)
-  lightColor: number; // لون فاتح (<=5%)
-  burntParts: number; // أجزاء محروقة (0%)
+  darkColor: number;
+  lightColor: number;
+  burntParts: number; // 0%
   
   // النسيج الداخلي (Limit: 3%, 0% for non-laminated)
-  deflatedProduct: number; // منتج هابط (<=3%)
-  gapsInPieces: number; // فراغات بالقطع (<=3%)
-  dryProduct: number; // منتج ناشف (<=3%)
-  doughyProduct: number; // منتج معجن (<=3%)
-  nonLaminated: number; // منتج غير مورق (0%)
+  deflatedProduct: number;
+  gapsInPieces: number;
+  dryProduct: number;
+  doughyProduct: number;
+  nonLaminated: number; // 0%
   
   // الحشو (Limit: 3% for qty, 0% for taste/empty)
-  bitterTaste: number; // طعم مر (0%)
-  rancidTaste: number; // طعم متزنخ (0%)
-  fillingLeakage: number; // خروج حشو (<=3%)
-  excessFilling: number; // حشو زائد (<=3%)
-  insufficientFilling: number; // حشو أقل (<=3%)
-  noFilling: number; // بدون حشو (0%)
+  bitterTaste: number; // 0%
+  rancidTaste: number; // 0%
+  fillingLeakage: number;
+  excessFilling: number;
+  insufficientFilling: number;
+  noFilling: number; // 0%
   
   // التلميع (Limit: 3% for texture, 5% for glaze)
-  heavyTexture: number; // قوام ثقيل (<=3%)
-  lightTexture: number; // قوام خفيف (<=3%)
-  excessGlaze: number; // تلميع زائد (<=5%)
-  insufficientGlaze: number; // تلميع أقل (<=5%)
+  heavyTexture: number;
+  lightTexture: number;
+  excessGlaze: number;
+  insufficientGlaze: number;
   
   // المظهر الخارجي (Limit: 3%, 0% for foreign matters)
-  surfaceSpots: number; // بقع على السطح (<=3%)
-  surfacePeeling: number; // تقشير بالسطح (<=3%)
-  surfaceCracks: number; // تشقق السطح (<=3%)
-  foreignMatters: number; // الشوائب والمواد الغريبة أو الضارة (0%)
+  surfaceSpots: number;
+  surfacePeeling: number;
+  surfaceCracks: number;
+  foreignMatters: number; // 0%
   
   // التغليف (Limit: 0% expiry, 3% seal/print)
-  expiryDateDefect: number; // تاريخ الصلاحية (0%)
-  sealingDefect: number; // اللحام (<=3%)
-  printingDefect: number; // الطباعة (<=3%)
+  expiryDateDefect: number; // 0%
+  sealingDefect: number;
+  printingDefect: number;
   
   // الرائحة (Limit: 0%)
-  undesiredSmell: number; // رائحة غير مرغوبة (0%)
+  undesiredSmell: number; // 0%
   
-  // Overall status
   status: 'compliant' | 'warning' | 'non_compliant';
   criticalDeviation: boolean;
   notes?: string;
 }
 
-// Core Product Temperature Monitoring (Pages 10 & 27)
+// Core Product Temperature Monitoring
 export interface CoreTemperatureRecord {
   id: string;
   sn: number;
   productName: string;
   time: string;
   machineCode: string;
-  coreTemperature: number; // Critical limit >= 90°C
+  coreTemperature: number;
   isCompliant: boolean;
   responsiblePerson: string;
   correctiveAction?: string;
   verifiedBy?: string;
   date: string;
-  bakerySection: 1 | 2;
+  bakerySection: number;
 }
 
-// Metal Detector CCP Monitoring (Page 11)
+// Metal Detector CCP Monitoring
 export interface MetalDetectorRecord {
   id: string;
   sn: number;
-  time: string; // 08:00 AM, 09:00 AM ... 24h
+  time: string;
   machineCode: string;
-  feStatus: 'pass' | 'fail'; // Fe: 2.5 mm
-  nfeStatus: 'pass' | 'fail'; // NFe: 3.0 mm
-  ssStatus: 'pass' | 'fail'; // S.S: 3.5 mm
+  feStatus: 'pass' | 'fail';
+  nfeStatus: 'pass' | 'fail';
+  ssStatus: 'pass' | 'fail';
   isCompliant: boolean;
   responsiblePerson: string;
   correctiveAction?: string;
@@ -163,13 +224,13 @@ export interface MetalDetectorRecord {
   date: string;
 }
 
-// Electric Sieve OPRP Monitoring (Pages 12 & 28)
+// Electric Sieve OPRP Monitoring
 export interface ElectricSieveRecord {
   id: string;
   sn: number;
   productName: string;
   time: string;
-  isCompliant: boolean; // Criteria: free from any foreign bodies/impurities
+  isCompliant: boolean;
   responsiblePerson: string;
   correctiveAction?: string;
   sieveIntegrityCheck: 'سليم وكفء' | 'غير مطابق';
@@ -177,12 +238,12 @@ export interface ElectricSieveRecord {
   date: string;
 }
 
-// Food Additives Weights Monitoring (Page 26)
+// Food Additives Weights Monitoring
 export interface AdditiveWeightRecord {
   id: string;
   sn: number;
   productName: string;
-  additiveName: string; // e.g. E330 ملح ليمون (0.67 جم/كجم), Cotton Candy 120 (2 جم/كجم), E133 (3.3 جم/كجم), E122 (1.5 جم/كجم)
+  additiveName: string;
   batchNumber: string;
   time: string;
   actualWeight_gm: number;
@@ -194,28 +255,28 @@ export interface AdditiveWeightRecord {
   date: string;
 }
 
-// Sensory Evaluation (Pages 13, 14, 29)
+// Sensory Evaluation
 export interface SensoryEvaluationRecord {
   id: string;
   sn: number;
   productName: string;
-  sampleType: 'daily_product' | 'new_sample'; // منتج يومي / عينة جديدة
-  isVegan: boolean; // صيامي (Page 14)
+  sampleType: 'daily_product' | 'new_sample';
+  isVegan: boolean;
   time: string;
   sampleNumber: string;
-  colorScore: number; // 0-10
-  tasteScore: number; // 0-10
-  aromaScore: number; // 0-10
-  textureScore: number; // 0-10
-  overallImpressionScore: number; // 0-10
-  overallRating: 'مرفوض' | 'مقبول' | 'جيد' | 'جيد جداً' | 'ممتاز'; // Matrix 0-4, 5-6, 7-8, 9, 10
+  colorScore: number;
+  tasteScore: number;
+  aromaScore: number;
+  textureScore: number;
+  overallImpressionScore: number;
+  overallRating: 'مرفوض' | 'مقبول' | 'جيد' | 'جيد جداً' | 'ممتاز';
   inspectorName: string;
   headOfSensoryName: string;
   notes?: string;
   date: string;
 }
 
-// Non-Conformance Report (NCR) (Page 15)
+// Non-Conformance Report (NCR)
 export interface NonConformanceRecord {
   id: string;
   sn: number;
@@ -224,14 +285,14 @@ export interface NonConformanceRecord {
   detectedDefects: string;
   defectiveQty: number;
   defectPercentage: number;
-  rootCause: string; // السبب الجذري
-  correctiveAction: string; // التصحيح
+  rootCause: string;
+  correctiveAction: string;
   signee: string;
   date: string;
   status: 'open' | 'resolved' | 'under_review';
 }
 
-// Sanitation & Hygiene Checklist (Pages 16 & 30)
+// Sanitation & Hygiene Checklist
 export interface SanitationEquipmentCheck {
   equipmentName: string;
   equipmentCode: string;
@@ -251,12 +312,12 @@ export interface DailySanitationLog {
   id: string;
   date: string;
   day: string;
-  bakerySection: 1 | 2;
+  bakerySection: number;
   items: SanitationEquipmentCheck[];
   inspectorSignature: string;
 }
 
-// Food Safety & GHP & Pest Control Checklist (Pages 17 & 31)
+// Food Safety & GHP Checklist
 export interface FoodSafetyItemCheck {
   id: string;
   category: 'GHP' | 'Pest_Control' | 'Work_Environment' | 'Hall_Integrity';
@@ -277,16 +338,16 @@ export interface DailyFoodSafetyLog {
   id: string;
   date: string;
   day: string;
-  bakerySection: 1 | 2;
+  bakerySection: number;
   checks: FoodSafetyItemCheck[];
   inspectorSignature: string;
 }
 
-// Finished Product Release Approval (Pages 18 & 32)
+// Finished Product Release Approval
 export interface ReleaseProductItem {
   id: string;
   productName: string;
-  unit: string; // قطعة
+  unit: string;
   quantity: number;
 }
 
@@ -294,16 +355,16 @@ export interface FinishedProductReleaseForm {
   id: string;
   date: string;
   day: string;
-  bakerySection: 1 | 2;
+  bakerySection: number;
   products: ReleaseProductItem[];
   mandatoryConditions: {
-    rawMaterialsCompliant: boolean; // جميع الخامات المستخدمة مطابقة
-    ccpOprpReportsCompliant: boolean; // جميع تقارير و نتائج متابعة CCP و OPRP مطابقة
-    labAnalysisCompliant: boolean; // نتائج تحاليل المعمل
-    labelAndPackagingCompliant: boolean; // مراجعة محتويات بطاقة البيانات و الصلاحية و حالة العبوة الظاهرية
-    customerRequirementsCompliant: boolean; // المنتج مطابق لشروط العميل
+    rawMaterialsCompliant: boolean;
+    ccpOprpReportsCompliant: boolean;
+    labAnalysisCompliant: boolean;
+    labelAndPackagingCompliant: boolean;
+    customerRequirementsCompliant: boolean;
   };
-  decision: 'approved' | 'pending' | 'rejected'; // يتم الإفراج عن المنتج ويسمح له بالخروج للعميل أو التداول أو التخزين
+  decision: 'approved' | 'pending' | 'rejected';
   notes?: string;
   qaReleaseOfficerName: string;
   qaReleaseOfficerSignature?: string;
@@ -313,7 +374,7 @@ export interface FinishedProductReleaseForm {
   storekeeperTimestamp?: string;
 }
 
-// Bakery 2 Finished Product Weights (Pages 23-25)
+// Product Weights Specification Record
 export interface ProductWeightSpecRecord {
   id: string;
   productName: string;

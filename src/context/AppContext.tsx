@@ -13,10 +13,17 @@ import {
   DailySanitationLog, 
   DailyFoodSafetyLog, 
   FinishedProductReleaseForm,
-  ProductWeightSpecRecord
+  ProductWeightSpecRecord,
+  BakerySectionDef,
+  CriticalLimitsConfig,
+  RawMaterialRecipe
 } from '../types';
 import {
   INITIAL_USERS,
+  INITIAL_SECTIONS,
+  DEFAULT_CRITICAL_LIMITS,
+  BAKERY_1_RECIPES,
+  BAKERY_2_RECIPES,
   INITIAL_OPERATING_PARAMETERS,
   INITIAL_DEFECT_LOGS,
   INITIAL_CORE_TEMPERATURES,
@@ -48,15 +55,41 @@ interface KPISummary {
 
 interface AppContextType {
   // App state
-  activeSection: 1 | 2;
-  setActiveSection: (sec: 1 | 2) => void;
+  activeSection: number;
+  setActiveSection: (sec: number) => void;
+  sections: BakerySectionDef[];
+  addSection: (sec: Omit<BakerySectionDef, 'id'>) => void;
+  updateSection: (id: number, sec: Partial<BakerySectionDef>) => void;
+  deleteSection: (id: number) => void;
+  
+  // Developer Mode (Password: Ee@1986)
+  isDevUnlocked: boolean;
+  verifyDevPassword: (password: string) => boolean;
+  lockDevMode: () => void;
+  
+  // Customizable Critical Limits
+  criticalLimits: CriticalLimitsConfig;
+  updateCriticalLimits: (limits: Partial<CriticalLimitsConfig>) => void;
+  
+  // Users & Roles
+  usersList: UserProfile[];
   currentUser: UserProfile;
   setCurrentUserRole: (role: UserRole) => void;
+  addUser: (user: UserProfile) => void;
+  updateUser: (id: string, user: Partial<UserProfile>) => void;
+  deleteUser: (id: string) => void;
+  
   isDarkMode: boolean;
   setIsDarkMode: (val: boolean | ((prev: boolean) => boolean)) => void;
   activeDate: string;
   setActiveDate: (date: string) => void;
   
+  // Recipes
+  recipesList: RawMaterialRecipe[];
+  addRecipe: (rec: RawMaterialRecipe) => void;
+  updateRecipe: (id: string, rec: Partial<RawMaterialRecipe>) => void;
+  deleteRecipe: (id: string) => void;
+
   // Data records
   operatingParams: OperatingParametersLog[];
   addOperatingParam: (param: Omit<OperatingParametersLog, 'id'>) => void;
@@ -119,17 +152,67 @@ interface AppContextType {
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
-const LOCAL_STORAGE_KEY = 'bakery_qc_state_v1';
+const LOCAL_STORAGE_KEY = 'bakery_qc_state_v2';
+const DEV_AUTH_KEY = 'bakery_dev_auth_v2';
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [activeSection, setActiveSection] = useState<1 | 2>(1);
-  const [currentUser, setCurrentUser] = useState<UserProfile>(INITIAL_USERS[0]);
+  const [activeSection, setActiveSection] = useState<number>(1);
   const [isDarkMode, setIsDarkMode] = useState<boolean>(() => {
     return localStorage.getItem('bakery_theme') === 'dark';
   });
   const [activeDate, setActiveDate] = useState<string>('2026-08-20');
 
-  // Load from local storage or use initials
+  // Developer Super Admin State (Password: Ee@1986)
+  const [isDevUnlocked, setIsDevUnlocked] = useState<boolean>(() => {
+    return localStorage.getItem(DEV_AUTH_KEY) === 'true';
+  });
+
+  const verifyDevPassword = (password: string): boolean => {
+    if (password === 'Ee@1986') {
+      setIsDevUnlocked(true);
+      localStorage.setItem(DEV_AUTH_KEY, 'true');
+      const devUser = usersList.find(u => u.role === 'developer') || INITIAL_USERS[3];
+      setCurrentUser(devUser);
+      return true;
+    }
+    return false;
+  };
+
+  const lockDevMode = () => {
+    setIsDevUnlocked(false);
+    localStorage.removeItem(DEV_AUTH_KEY);
+    setCurrentUser(usersList[0] || INITIAL_USERS[0]);
+  };
+
+  // Sections List
+  const [sections, setSections] = useState<BakerySectionDef[]>(() => {
+    const saved = localStorage.getItem(`${LOCAL_STORAGE_KEY}_sections`);
+    return saved ? JSON.parse(saved) : INITIAL_SECTIONS;
+  });
+
+  // Critical Limits Config
+  const [criticalLimits, setCriticalLimits] = useState<CriticalLimitsConfig>(() => {
+    const saved = localStorage.getItem(`${LOCAL_STORAGE_KEY}_limits`);
+    return saved ? JSON.parse(saved) : DEFAULT_CRITICAL_LIMITS;
+  });
+
+  // Users List
+  const [usersList, setUsersList] = useState<UserProfile[]>(() => {
+    const saved = localStorage.getItem(`${LOCAL_STORAGE_KEY}_users`);
+    return saved ? JSON.parse(saved) : INITIAL_USERS;
+  });
+
+  const [currentUser, setCurrentUser] = useState<UserProfile>(() => {
+    return isDevUnlocked ? (usersList.find(u => u.role === 'developer') || INITIAL_USERS[3]) : (usersList[0] || INITIAL_USERS[0]);
+  });
+
+  // Master Recipes List
+  const [recipesList, setRecipesList] = useState<RawMaterialRecipe[]>(() => {
+    const saved = localStorage.getItem(`${LOCAL_STORAGE_KEY}_recipes`);
+    return saved ? JSON.parse(saved) : [...BAKERY_1_RECIPES, ...BAKERY_2_RECIPES];
+  });
+
+  // Data records
   const [operatingParams, setOperatingParams] = useState<OperatingParametersLog[]>(() => {
     const saved = localStorage.getItem(`${LOCAL_STORAGE_KEY}_op_params`);
     return saved ? JSON.parse(saved) : INITIAL_OPERATING_PARAMETERS;
@@ -195,7 +278,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return saved ? JSON.parse(saved) : INITIAL_PRODUCT_WEIGHT_SPECS;
   });
 
-  // Save to localStorage on change
+  // LocalStorage sync
+  useEffect(() => {
+    localStorage.setItem(`${LOCAL_STORAGE_KEY}_sections`, JSON.stringify(sections));
+  }, [sections]);
+
+  useEffect(() => {
+    localStorage.setItem(`${LOCAL_STORAGE_KEY}_limits`, JSON.stringify(criticalLimits));
+  }, [criticalLimits]);
+
+  useEffect(() => {
+    localStorage.setItem(`${LOCAL_STORAGE_KEY}_users`, JSON.stringify(usersList));
+  }, [usersList]);
+
+  useEffect(() => {
+    localStorage.setItem(`${LOCAL_STORAGE_KEY}_recipes`, JSON.stringify(recipesList));
+  }, [recipesList]);
+
   useEffect(() => {
     localStorage.setItem(`${LOCAL_STORAGE_KEY}_op_params`, JSON.stringify(operatingParams));
   }, [operatingParams]);
@@ -258,17 +357,88 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   }, [isDarkMode]);
 
+  // Section CRUD
+  const addSection = (sec: Omit<BakerySectionDef, 'id'>) => {
+    const nextId = sections.length > 0 ? Math.max(...sections.map(s => s.id)) + 1 : 1;
+    const newSec: BakerySectionDef = { ...sec, id: nextId };
+    setSections(prev => [...prev, newSec]);
+  };
+
+  const updateSection = (id: number, updated: Partial<BakerySectionDef>) => {
+    setSections(prev => prev.map(s => s.id === id ? { ...s, ...updated } : s));
+  };
+
+  const deleteSection = (id: number) => {
+    if (sections.length <= 1) {
+      alert('يجب الإبقاء على قسم واحد على الأقل في النظام.');
+      return;
+    }
+    setSections(prev => prev.filter(s => s.id !== id));
+    if (activeSection === id) {
+      setActiveSection(sections[0]?.id || 1);
+    }
+  };
+
+  // Critical Limits
+  const updateCriticalLimits = (limits: Partial<CriticalLimitsConfig>) => {
+    setCriticalLimits(prev => ({
+      ...prev,
+      ...limits,
+      metalDetector: { ...prev.metalDetector, ...limits.metalDetector },
+      kneading: { ...prev.kneading, ...limits.kneading },
+      baking: { ...prev.baking, ...limits.baking },
+      sheeting: { ...prev.sheeting, ...limits.sheeting },
+      glazing: { ...prev.glazing, ...limits.glazing },
+      frying: { ...prev.frying, ...limits.frying },
+      defectLimits: { ...prev.defectLimits, ...limits.defectLimits },
+    }));
+  };
+
+  // Users CRUD
   const setCurrentUserRole = (role: UserRole) => {
-    const user = INITIAL_USERS.find(u => u.role === role) || INITIAL_USERS[0];
+    const user = usersList.find(u => u.role === role) || usersList[0];
     setCurrentUser(user);
   };
 
-  // Add / Delete functions
-  const addOperatingParam = (param: Omit<OperatingParametersLog, 'id'>) => {
-    const newParam: OperatingParametersLog = {
-      ...param,
-      id: `op-${Date.now()}`
+  const addUser = (user: UserProfile) => {
+    setUsersList(prev => [...prev, user]);
+  };
+
+  const updateUser = (id: string, updated: Partial<UserProfile>) => {
+    setUsersList(prev => prev.map(u => u.id === id ? { ...u, ...updated } : u));
+    if (currentUser.id === id) {
+      setCurrentUser(prev => ({ ...prev, ...updated }));
+    }
+  };
+
+  const deleteUser = (id: string) => {
+    if (usersList.length <= 1) {
+      alert('لا يمكن حذف آخر مستخدم في النظام.');
+      return;
+    }
+    setUsersList(prev => prev.filter(u => u.id !== id));
+  };
+
+  // Recipes CRUD
+  const addRecipe = (rec: RawMaterialRecipe) => {
+    const newRec: RawMaterialRecipe = {
+      ...rec,
+      id: rec.id || `rec-${Date.now()}`
     };
+    setRecipesList(prev => [...prev, newRec]);
+  };
+
+  const updateRecipe = (id: string, updated: Partial<RawMaterialRecipe>) => {
+    setRecipesList(prev => prev.map(r => r.id === id ? { ...r, ...updated } : r));
+  };
+
+  const deleteRecipe = (id: string) => {
+    setRecipesList(prev => prev.filter(r => r.id !== id));
+  };
+
+  // Operational Params
+  const addOperatingParam = (param: Omit<OperatingParametersLog, 'id'>) => {
+    const newParam: OperatingParametersLog = { ...param, id: `op-${Date.now()}` };
     setOperatingParams(prev => [newParam, ...prev]);
   };
 
@@ -276,11 +446,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setOperatingParams(prev => prev.filter(p => p.id !== id));
   };
 
+  // Defect Logs
   const addDefectLog = (log: Omit<DefectItemRow, 'id'>) => {
-    const newLog: DefectItemRow = {
-      ...log,
-      id: `def-${Date.now()}`
-    };
+    const newLog: DefectItemRow = { ...log, id: `def-${Date.now()}` };
     setDefectLogs(prev => [newLog, ...prev]);
   };
 
@@ -292,11 +460,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setDefectLogs(prev => prev.filter(item => item.id !== id));
   };
 
+  // Core Temps
   const addCoreTemperature = (rec: Omit<CoreTemperatureRecord, 'id'>) => {
-    const newRec: CoreTemperatureRecord = {
-      ...rec,
-      id: `ct-${Date.now()}`
-    };
+    const newRec: CoreTemperatureRecord = { ...rec, id: `ct-${Date.now()}` };
     setCoreTemperatures(prev => [newRec, ...prev]);
   };
 
@@ -304,11 +470,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setCoreTemperatures(prev => prev.filter(item => item.id !== id));
   };
 
+  // Metal Detector
   const addMetalDetectorRecord = (rec: Omit<MetalDetectorRecord, 'id'>) => {
-    const newRec: MetalDetectorRecord = {
-      ...rec,
-      id: `md-${Date.now()}`
-    };
+    const newRec: MetalDetectorRecord = { ...rec, id: `md-${Date.now()}` };
     setMetalDetectorLogs(prev => [newRec, ...prev]);
   };
 
@@ -320,11 +484,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setMetalDetectorLogs(prev => prev.filter(item => item.id !== id));
   };
 
+  // Electric Sieve
   const addElectricSieveRecord = (rec: Omit<ElectricSieveRecord, 'id'>) => {
-    const newRec: ElectricSieveRecord = {
-      ...rec,
-      id: `es-${Date.now()}`
-    };
+    const newRec: ElectricSieveRecord = { ...rec, id: `es-${Date.now()}` };
     setElectricSieveLogs(prev => [newRec, ...prev]);
   };
 
@@ -332,11 +494,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setElectricSieveLogs(prev => prev.filter(item => item.id !== id));
   };
 
+  // Additives
   const addAdditiveWeightRecord = (rec: Omit<AdditiveWeightRecord, 'id'>) => {
-    const newRec: AdditiveWeightRecord = {
-      ...rec,
-      id: `ad-${Date.now()}`
-    };
+    const newRec: AdditiveWeightRecord = { ...rec, id: `ad-${Date.now()}` };
     setAdditiveWeights(prev => [newRec, ...prev]);
   };
 
@@ -344,11 +504,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setAdditiveWeights(prev => prev.filter(item => item.id !== id));
   };
 
+  // Sensory
   const addSensoryEvaluation = (rec: Omit<SensoryEvaluationRecord, 'id'>) => {
-    const newRec: SensoryEvaluationRecord = {
-      ...rec,
-      id: `se-${Date.now()}`
-    };
+    const newRec: SensoryEvaluationRecord = { ...rec, id: `se-${Date.now()}` };
     setSensoryEvaluations(prev => [newRec, ...prev]);
   };
 
@@ -356,11 +514,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setSensoryEvaluations(prev => prev.filter(item => item.id !== id));
   };
 
+  // NCR
   const addNonConformanceRecord = (rec: Omit<NonConformanceRecord, 'id'>) => {
-    const newRec: NonConformanceRecord = {
-      ...rec,
-      id: `ncr-${Date.now()}`
-    };
+    const newRec: NonConformanceRecord = { ...rec, id: `ncr-${Date.now()}` };
     setNonConformanceLogs(prev => [newRec, ...prev]);
   };
 
@@ -372,6 +528,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setNonConformanceLogs(prev => prev.filter(item => item.id !== id));
   };
 
+  // Sanitation & GHP
   const updateSanitationLogB1 = (log: DailySanitationLog) => {
     setSanitationLogB1(log);
   };
@@ -389,10 +546,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const addProductWeightSpec = (rec: Omit<ProductWeightSpecRecord, 'id'>) => {
-    const newRec: ProductWeightSpecRecord = {
-      ...rec,
-      id: `pw-${Date.now()}`
-    };
+    const newRec: ProductWeightSpecRecord = { ...rec, id: `pw-${Date.now()}` };
     setProductWeightSpecs(prev => [newRec, ...prev]);
   };
 
@@ -402,6 +556,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Reset Data
   const resetAllData = () => {
+    setSections(INITIAL_SECTIONS);
+    setCriticalLimits(DEFAULT_CRITICAL_LIMITS);
+    setUsersList(INITIAL_USERS);
+    setRecipesList([...BAKERY_1_RECIPES, ...BAKERY_2_RECIPES]);
     setOperatingParams(INITIAL_OPERATING_PARAMETERS);
     setDefectLogs(INITIAL_DEFECT_LOGS);
     setCoreTemperatures(INITIAL_CORE_TEMPERATURES);
@@ -420,6 +578,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // Export JSON
   const exportDataJSON = (): string => {
     const payload = {
+      sections,
+      criticalLimits,
+      usersList,
+      recipesList,
       operatingParams,
       defectLogs,
       coreTemperatures,
@@ -442,6 +604,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const importDataJSON = (jsonStr: string): boolean => {
     try {
       const parsed = JSON.parse(jsonStr);
+      if (parsed.sections) setSections(parsed.sections);
+      if (parsed.criticalLimits) setCriticalLimits(parsed.criticalLimits);
+      if (parsed.usersList) setUsersList(parsed.usersList);
+      if (parsed.recipesList) setRecipesList(parsed.recipesList);
       if (parsed.defectLogs) setDefectLogs(parsed.defectLogs);
       if (parsed.operatingParams) setOperatingParams(parsed.operatingParams);
       if (parsed.coreTemperatures) setCoreTemperatures(parsed.coreTemperatures);
@@ -462,7 +628,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const triggerMockUpdate = () => {
-    // Add random new sample reading
     const sampleTemps = [91.5, 93.0, 94.2, 95.5, 92.8, 96.0];
     const randTemp = sampleTemps[Math.floor(Math.random() * sampleTemps.length)];
     addCoreTemperature({
@@ -471,7 +636,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       time: new Date().toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' }),
       machineCode: 'OVEN-01',
       coreTemperature: randTemp,
-      isCompliant: randTemp >= 90,
+      isCompliant: randTemp >= criticalLimits.coreTempMin,
       responsiblePerson: currentUser.name,
       verifiedBy: 'م. محمد سيف الإسلام',
       date: activeDate,
@@ -524,12 +689,29 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     <AppContext.Provider value={{
       activeSection,
       setActiveSection,
+      sections,
+      addSection,
+      updateSection,
+      deleteSection,
+      isDevUnlocked,
+      verifyDevPassword,
+      lockDevMode,
+      criticalLimits,
+      updateCriticalLimits,
+      usersList,
       currentUser,
       setCurrentUserRole,
+      addUser,
+      updateUser,
+      deleteUser,
       isDarkMode,
       setIsDarkMode,
       activeDate,
       setActiveDate,
+      recipesList,
+      addRecipe,
+      updateRecipe,
+      deleteRecipe,
       operatingParams,
       addOperatingParam,
       deleteOperatingParam,

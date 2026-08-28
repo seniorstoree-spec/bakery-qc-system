@@ -2,7 +2,7 @@ import React from 'react';
 import { useApp } from '../../context/AppContext';
 import { INITIAL_USERS } from '../../data/initialData';
 import { UserRole } from '../../types';
-import { Shield, Check, UserCheck, AlertTriangle, Key } from 'lucide-react';
+import { Shield, Check, Key } from 'lucide-react';
 
 interface RoleSwitcherModalProps {
   isOpen: boolean;
@@ -10,7 +10,7 @@ interface RoleSwitcherModalProps {
 }
 
 export const RoleSwitcherModal: React.FC<RoleSwitcherModalProps> = ({ isOpen, onClose }) => {
-  const { currentUser, setCurrentUserRole } = useApp();
+  const { currentUser, setCurrentUserRole, usersList } = useApp();
 
   if (!isOpen) return null;
 
@@ -34,8 +34,15 @@ export const RoleSwitcherModal: React.FC<RoleSwitcherModalProps> = ({ isOpen, on
       label: 'مدير النظام (System Admin)',
       color: 'bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950/50 dark:text-purple-300 dark:border-purple-800',
       desc: 'تحكم كامل بالنظام وإدارة المستخدمين وإعدادات النسخ الاحتياطي والصلاحيات'
+    },
+    developer: {
+      label: 'مطور النظام (Super Admin Developer)',
+      color: 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/50 dark:text-rose-300 dark:border-rose-800',
+      desc: 'تحكم مطلق بالنظام وقواعد البيانات والأقسام والحدود الحرجة (محمي بكلمة السر Ee@1986)'
     }
   };
+
+  const displayUsers = usersList || INITIAL_USERS;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fadeIn">
@@ -62,10 +69,10 @@ export const RoleSwitcherModal: React.FC<RoleSwitcherModalProps> = ({ isOpen, on
           </button>
         </div>
 
-        <div className="space-y-3 my-4">
-          {INITIAL_USERS.map((user) => {
+        <div className="space-y-3 my-4 max-h-[60vh] overflow-y-auto custom-scrollbar p-1">
+          {displayUsers.map((user) => {
             const isSelected = currentUser.role === user.role;
-            const badge = roleBadges[user.role];
+            const badge = roleBadges[user.role] || roleBadges.quality_engineer;
 
             return (
               <div
@@ -149,7 +156,7 @@ export const RoleSwitcherModal: React.FC<RoleSwitcherModalProps> = ({ isOpen, on
         <div className="mt-6 flex justify-end">
           <button
             onClick={onClose}
-            className="px-6 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-bold transition-all shadow-md shadow-rose-600/20"
+            className="px-6 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-bold transition-all shadow-md shadow-rose-600/20 text-xs"
           >
             تطبيق ومتابعة
           </button>

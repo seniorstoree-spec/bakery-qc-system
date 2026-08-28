@@ -12,8 +12,76 @@ import {
   DailySanitationLog, 
   DailyFoodSafetyLog, 
   FinishedProductReleaseForm,
-  ProductWeightSpecRecord
+  ProductWeightSpecRecord,
+  BakerySectionDef,
+  CriticalLimitsConfig
 } from '../types';
+
+export const INITIAL_SECTIONS: BakerySectionDef[] = [
+  {
+    id: 1,
+    name: 'مخبوزات 1',
+    subtitle: 'كرواسون، باتيه، دانش، ميلفيه، بغاشة',
+    description: 'قسم تصنيع وإنتاج المخبوزات المورقة والمعجنات الفرنسية'
+  },
+  {
+    id: 2,
+    name: 'مخبوزات 2',
+    subtitle: 'دونتس، سينامون، ساندويتشات',
+    description: 'قسم إنتاج الدونتس المقلي ولفائف السينامون والساندويتشات'
+  }
+];
+
+export const DEFAULT_CRITICAL_LIMITS: CriticalLimitsConfig = {
+  coreTempMin: 90,
+  metalDetector: {
+    fe_mm: 2.5,
+    nfe_mm: 3.0,
+    ss_mm: 3.5
+  },
+  sieveMeshMicrons: 600,
+  kneading: {
+    minTemp: 15,
+    maxTemp: 19,
+    minDuration: 12,
+    maxDuration: 20
+  },
+  baking: {
+    b1_minTemp: 160,
+    b1_maxTemp: 205,
+    b1_minDuration: 6,
+    b1_maxDuration: 40,
+    b2_minTemp: 145,
+    b2_maxTemp: 270,
+    b2_minDuration: 5,
+    b2_maxDuration: 28
+  },
+  sheeting: {
+    b1_minThickness: 0.4,
+    b1_maxThickness: 0.7,
+    b2_minThickness: 0.4,
+    b2_maxThickness: 1.5,
+    croissantLaminationPct: 29,
+    pateLaminationPct: 23
+  },
+  glazing: {
+    honeySyrupMinPct: 73,
+    honeySyrupMaxPct: 75,
+    apricotJamMinPct: 60,
+    apricotJamMaxPct: 65
+  },
+  frying: {
+    tpmMaxPct: 24,
+    oilAdditionMinPct: 0.5,
+    oilAdditionMaxPct: 4.5
+  },
+  defectLimits: {
+    sizeAndWeightMaxPct: 5,
+    colorAndGlazeMaxPct: 5,
+    textureAndFillingMaxPct: 3,
+    criticalZeroDefectsAllowedPct: 0
+  }
+};
 
 export const INITIAL_USERS: UserProfile[] = [
   {
@@ -63,10 +131,10 @@ export const INITIAL_USERS: UserProfile[] = [
   },
   {
     id: 'usr-4',
-    name: 'م. إبراهيم خليل',
-    role: 'system_admin',
-    department: 'نظم المعلومات وتأكيد الجودة',
-    title: 'مدير النظام ومسؤول الصلاحيات',
+    name: 'م. إبراهيم خليل (مطور النظام)',
+    role: 'developer',
+    department: 'التطوير الهندسي والتحكم الفائق',
+    title: 'المطور الرئيسي للبرمجيات',
     permissions: {
       canEnterData: true,
       canApproveRelease: true,
@@ -74,12 +142,15 @@ export const INITIAL_USERS: UserProfile[] = [
       canManageUsers: true,
       canExportReports: true,
       canSignOff: true,
+      isDeveloperSuperAdmin: true
     }
   }
 ];
 
 export const BAKERY_1_RECIPES: RawMaterialRecipe[] = [
   {
+    id: 'rec-1',
+    sectionId: 1,
     productName: 'كرواسون',
     flour_kg: 100,
     butter_kg: 2,
@@ -98,6 +169,8 @@ export const BAKERY_1_RECIPES: RawMaterialRecipe[] = [
     notes: 'معايير التشغيل القياسية لقسم المخبوزات 1'
   },
   {
+    id: 'rec-2',
+    sectionId: 1,
     productName: 'باتيه',
     flour_kg: 100,
     pasteurized_eggs_kg: 16.5,
@@ -113,6 +186,8 @@ export const BAKERY_1_RECIPES: RawMaterialRecipe[] = [
     broken_ghorayeba_kg: 32,
   },
   {
+    id: 'rec-3',
+    sectionId: 1,
     productName: 'دانش',
     flour_kg: 100,
     pasteurized_eggs_kg: 16.5,
@@ -128,6 +203,8 @@ export const BAKERY_1_RECIPES: RawMaterialRecipe[] = [
     broken_ghorayeba_kg: 32,
   },
   {
+    id: 'rec-4',
+    sectionId: 1,
     productName: 'عجين أبيض - بغاشة',
     flour_kg: 50,
     salt_gm: 700,
@@ -135,6 +212,8 @@ export const BAKERY_1_RECIPES: RawMaterialRecipe[] = [
     broken_ghorayeba_kg: 16,
   },
   {
+    id: 'rec-5',
+    sectionId: 1,
     productName: 'عجين أبيض - ميلفيه',
     flour_kg: 50,
     salt_gm: 250,
@@ -144,12 +223,16 @@ export const BAKERY_1_RECIPES: RawMaterialRecipe[] = [
     broken_ghorayeba_kg: 16,
   },
   {
+    id: 'rec-6',
+    sectionId: 1,
     productName: 'عجين زبده',
     flour_kg: 62.5,
     butter_kg: 112.5,
     notes: 'خلط الزبدة مع الدقيق'
   },
   {
+    id: 'rec-7',
+    sectionId: 1,
     productName: 'منقوش',
     flour_kg: 25,
     powdered_milk_kg: 1.0,
@@ -161,6 +244,8 @@ export const BAKERY_1_RECIPES: RawMaterialRecipe[] = [
     water_ice_L: 12.0,
   },
   {
+    id: 'rec-8',
+    sectionId: 1,
     productName: 'باتون ساليه',
     flour_kg: 48,
     butter_kg: 24,
@@ -170,19 +255,23 @@ export const BAKERY_1_RECIPES: RawMaterialRecipe[] = [
     water_ice_L: 6,
   },
   {
+    id: 'rec-9',
+    sectionId: 1,
     productName: 'عجين صيامي',
     flour_kg: 10,
     sugar_kg: 1,
     salt_gm: 150,
     yeast_gm: 100,
     improver_gm: 50,
-    gluten_kg: 200, // gm
+    gluten_kg: 0.200,
     oil_L: 0.500,
     water_ice_L: 6,
     debris_kg: 3.5,
     polish_kg: 2.5,
   },
   {
+    id: 'rec-10',
+    sectionId: 1,
     productName: 'بيتزا ايطالي',
     flour_kg: 50,
     pasteurized_eggs_kg: 2.8,
@@ -194,6 +283,8 @@ export const BAKERY_1_RECIPES: RawMaterialRecipe[] = [
     water_ice_L: 20,
   },
   {
+    id: 'rec-11',
+    sectionId: 1,
     productName: 'كريمه بستري (دانش)',
     customFields: {
       'بودر كريمة': '1 kg',
@@ -201,6 +292,8 @@ export const BAKERY_1_RECIPES: RawMaterialRecipe[] = [
     }
   },
   {
+    id: 'rec-12',
+    sectionId: 1,
     productName: 'خليط صلصة البيتزا',
     customFields: {
       'صلصة': '30 kg',
@@ -216,6 +309,8 @@ export const BAKERY_1_RECIPES: RawMaterialRecipe[] = [
 
 export const BAKERY_2_RECIPES: RawMaterialRecipe[] = [
   {
+    id: 'rec-b2-1',
+    sectionId: 2,
     productName: 'دونتس ميجا مفتوح',
     flour_kg: 50,
     butter_kg: 5,
@@ -229,6 +324,8 @@ export const BAKERY_2_RECIPES: RawMaterialRecipe[] = [
     debris_kg: 20,
   },
   {
+    id: 'rec-b2-2',
+    sectionId: 2,
     productName: 'دونتس ميجا فيلد',
     flour_kg: 50,
     butter_kg: 5,
@@ -236,11 +333,13 @@ export const BAKERY_2_RECIPES: RawMaterialRecipe[] = [
     sugar_kg: 2.5,
     salt_gm: 500,
     yeast_gm: 500,
-    gluten_kg: 500, // gm
+    gluten_kg: 0.500,
     water_ice_L: 23,
     debris_kg: 20,
   },
   {
+    id: 'rec-b2-3',
+    sectionId: 2,
     productName: 'دونتس مفتوح',
     flour_kg: 60,
     butter_kg: 9,
@@ -254,6 +353,8 @@ export const BAKERY_2_RECIPES: RawMaterialRecipe[] = [
     debris_kg: 23,
   },
   {
+    id: 'rec-b2-4',
+    sectionId: 2,
     productName: 'دونتس فيلد',
     flour_kg: 60,
     butter_kg: 9,
@@ -262,11 +363,13 @@ export const BAKERY_2_RECIPES: RawMaterialRecipe[] = [
     salt_gm: 600,
     yeast_gm: 600,
     improver_gm: 300,
-    gluten_kg: 600, // gm
+    gluten_kg: 0.600,
     water_ice_L: 27.5,
     debris_kg: 23,
   },
   {
+    id: 'rec-b2-5',
+    sectionId: 2,
     productName: 'دونتس صيامي',
     flour_kg: 10,
     sugar_kg: 1.2,
@@ -278,6 +381,8 @@ export const BAKERY_2_RECIPES: RawMaterialRecipe[] = [
     debris_kg: 1.5,
   },
   {
+    id: 'rec-b2-6',
+    sectionId: 2,
     productName: 'ساندويتش',
     flour_kg: 30,
     powdered_milk_kg: 1.2,
@@ -285,12 +390,14 @@ export const BAKERY_2_RECIPES: RawMaterialRecipe[] = [
     salt_gm: 300,
     yeast_gm: 450,
     improver_gm: 75,
-    gluten_kg: 75, // gm
+    gluten_kg: 0.075,
     oil_L: 4.5,
     water_ice_L: 8.5,
     debris_kg: 8,
   },
   {
+    id: 'rec-b2-7',
+    sectionId: 2,
     productName: 'ميني ساندويتش',
     flour_kg: 48,
     pasteurized_eggs_kg: 3,
@@ -305,6 +412,8 @@ export const BAKERY_2_RECIPES: RawMaterialRecipe[] = [
     debris_kg: 15,
   },
   {
+    id: 'rec-b2-8',
+    sectionId: 2,
     productName: 'سينامون',
     flour_kg: 50,
     butter_kg: 7.2,
@@ -319,6 +428,8 @@ export const BAKERY_2_RECIPES: RawMaterialRecipe[] = [
     debris_kg: 10,
   },
   {
+    id: 'rec-b2-9',
+    sectionId: 2,
     productName: 'كريمة السينامون',
     customFields: {
       'سكر مطحون': '2 kg',
@@ -329,6 +440,8 @@ export const BAKERY_2_RECIPES: RawMaterialRecipe[] = [
     }
   },
   {
+    id: 'rec-b2-10',
+    sectionId: 2,
     productName: 'خليط التيرميسيو',
     customFields: {
       'نسكافيه': '50 gm',
@@ -337,6 +450,8 @@ export const BAKERY_2_RECIPES: RawMaterialRecipe[] = [
     }
   },
   {
+    id: 'rec-b2-11',
+    sectionId: 2,
     productName: 'كريمة حشو الريد فلفت',
     customFields: {
       'زبدة': '1.5 kg',
@@ -625,23 +740,6 @@ export const SANITATION_EQUIPMENT_NAMES_B1 = [
   { name: 'الأفران', code: 'EQ-16' },
 ];
 
-export const SANITATION_EQUIPMENT_NAMES_B2 = [
-  { name: 'العجانات', code: 'EQ2-01' },
-  { name: 'الفرادات', code: 'EQ2-02' },
-  { name: 'ماكينات التكوير', code: 'EQ2-03' },
-  { name: 'ماكينات التقطيع', code: 'EQ2-04' },
-  { name: 'ماكينات الحقن', code: 'EQ2-05' },
-  { name: 'المضارب', code: 'EQ2-06' },
-  { name: 'القلايات', code: 'EQ2-07' },
-  { name: 'السخانات', code: 'EQ2-08' },
-  { name: 'الإستاندات', code: 'EQ2-09' },
-  { name: 'أدوات المناولة', code: 'EQ2-10' },
-  { name: 'الترابيزات', code: 'EQ2-11' },
-  { name: 'المخمرات', code: 'EQ2-12' },
-  { name: 'الأفران', code: 'EQ2-13' },
-  { name: 'الآيس ميكر', code: 'EQ2-14' },
-];
-
 export const INITIAL_SANITATION_LOG_B1: DailySanitationLog = {
   id: 'san-b1-1',
   date: '2026-08-20',
@@ -665,26 +763,19 @@ export const INITIAL_SANITATION_LOG_B1: DailySanitationLog = {
 };
 
 export const FOOD_SAFETY_CHECK_CRITERIA = [
-  // GHP
   { id: 'ghp-1', category: 'GHP' as const, criterion: 'نظافة الأظافر' },
   { id: 'ghp-2', category: 'GHP' as const, criterion: 'سلامة ونظافة الملابس' },
   { id: 'ghp-3', category: 'GHP' as const, criterion: 'إرتداء مهمات الوقاية (كمامات - قفازات - غطاء رأس)' },
   { id: 'ghp-4', category: 'GHP' as const, criterion: 'عدم إرتداء مخالفات (ساعات - مجوهرات - متعلقات شخصية)' },
   { id: 'ghp-5', category: 'GHP' as const, criterion: 'سلامة الأيدي وعدم وجود إصابات أو جروح' },
   { id: 'ghp-6', category: 'GHP' as const, criterion: 'التحقق من نظافة الأيدي والتطهير الدوري' },
-  
-  // Pest Control
   { id: 'pest-1', category: 'Pest_Control' as const, criterion: 'التحقق من عمل المصائد الضوئية ونظافتها' },
   { id: 'pest-2', category: 'Pest_Control' as const, criterion: 'التحقق من عمل الستائر الهوائية' },
   { id: 'pest-3', category: 'Pest_Control' as const, criterion: 'عدم وجود أي آفات أو حشرات بالصالة' },
-  
-  // Work Environment
   { id: 'env-1', category: 'Work_Environment' as const, criterion: 'التحقق من نظافة الحوائط والأرضيات' },
   { id: 'env-2', category: 'Work_Environment' as const, criterion: 'التحقق من نظافة بالوعات الصرف وأحواض الغسيل' },
   { id: 'env-3', category: 'Work_Environment' as const, criterion: 'عدم وجود مخلفات إنتاج في الممرات' },
   { id: 'env-4', category: 'Work_Environment' as const, criterion: 'التحقق من نظافة الأبواب والنوافذ والستائر' },
-  
-  // Hall Integrity
   { id: 'hall-1', category: 'Hall_Integrity' as const, criterion: 'سلامة الحوائط والأرضيات والأسقف وعدم وجود تكسيرات أو شروخ' },
 ];
 

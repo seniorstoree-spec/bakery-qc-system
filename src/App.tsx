@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { AppProvider, useApp } from './context/AppContext';
+import { AppProvider } from './context/AppContext';
 import { Navbar } from './components/Navbar';
 import { Sidebar, NavTab } from './components/Sidebar';
+import { MobileBottomNav } from './components/Mobile/MobileBottomNav';
 import { DashboardOverview } from './components/Dashboard/DashboardOverview';
 import { InProcessModule } from './components/InProcessControl/InProcessModule';
 import { DefectsModule } from './components/DefectsLog/DefectsModule';
@@ -15,7 +16,7 @@ const MainLayout: React.FC = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   return (
-    <div className="min-h-screen flex flex-col bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors">
+    <div className="min-h-screen flex flex-col bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors pb-14 lg:pb-0">
       <Navbar onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)} />
 
       <div className="flex-1 flex overflow-hidden">
@@ -26,7 +27,7 @@ const MainLayout: React.FC = () => {
           onClose={() => setIsSidebarOpen(false)}
         />
 
-        <main className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8 max-w-7xl mx-auto w-full">
+        <main className="flex-1 overflow-y-auto p-3 sm:p-5 md:p-6 lg:p-8 max-w-7xl mx-auto w-full">
           {activeTab === 'dashboard' && (
             <DashboardOverview onNavigate={(tab) => setActiveTab(tab)} />
           )}
@@ -38,6 +39,13 @@ const MainLayout: React.FC = () => {
           {activeTab === 'product_release' && <ProductReleaseModule />}
         </main>
       </div>
+
+      {/* Mobile Sticky Bottom Nav Bar */}
+      <MobileBottomNav
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
+        onOpenSidebar={() => setIsSidebarOpen(true)}
+      />
     </div>
   );
 };
