@@ -10,9 +10,7 @@ import {
   Thermometer, 
   ShieldCheck, 
   Eye, 
-  CheckSquare,
-  Sparkles,
-  ClipboardCheck
+  CheckSquare 
 } from "lucide-react";
 import clsx from "clsx";
 
@@ -25,15 +23,12 @@ export default function Sidebar() {
     { name: "تسجيل عيوب الجودة", href: "/defects", icon: AlertTriangle },
     { name: "تتبع الأوزان والحرارة", href: "/measurements", icon: Thermometer },
     { name: "النقاط الحرجة (CCP / OPRP)", href: "/ccp", icon: ShieldCheck },
-    { name: "التقييم الحسي", href: "/sensory", icon: Eye },
-    { name: "نموذج متابعة النظافة", href: "/cleaning-log", icon: Sparkles },
-    { name: "اشتراطات سلامة الغذاء", href: "/food-safety-checklist", icon: ClipboardCheck },
-    { name: "التقارير الشاملة", href: "/reports", icon: ClipboardList },
+    { name: "التقييم الحسي والسلامة", href: "/sensory", icon: Eye },
     { name: "الإفراج عن المنتج النهائي", href: "/release", icon: CheckSquare },
   ];
 
   return (
-    <aside className="w-64 bg-slate-900 text-white flex flex-col hidden lg:flex shrink-0">
+    <aside className="w-64 bg-slate-900 text-white flex flex-col hidden md:flex shrink-0">
       <div className="h-16 flex items-center justify-center border-b border-slate-800">
         <h2 className="text-lg font-bold text-white tracking-wide">
           الجودة - قسم المخابز
@@ -63,7 +58,7 @@ export default function Sidebar() {
         </ul>
       </nav>
       <div className="p-4 border-t border-slate-800 text-xs text-slate-500 text-center">
-        الإصدار 1.1.0
+        الإصدار 1.0.0
       </div>
     </aside>
   );

@@ -1,12 +1,11 @@
 "use client";
 
 import React from "react";
-import Link from "next/link";
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
   LineChart, Line, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar
 } from "recharts";
-import { CheckCircle2, XCircle, AlertCircle, TrendingUp, Sparkles, ClipboardCheck } from "lucide-react";
+import { CheckCircle2, XCircle, AlertCircle, TrendingUp } from "lucide-react";
 
 // Mock Data
 const tempChartData = [
@@ -70,24 +69,6 @@ export default function Dashboard() {
             <XCircle size={24} />
           </div>
         </div>
-      </div>
-
-      {/* Quick Access Action Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <Link href="/cleaning-log" className="bg-blue-600 hover:bg-blue-700 text-white p-5 rounded-xl shadow-sm flex items-center justify-between transition-transform transform hover:-translate-y-1">
-          <div>
-            <h3 className="text-lg font-bold mb-1">نموذج النظافة والتطهير</h3>
-            <p className="text-blue-100 text-sm">أضف سجل فحص النظافة اليومي للمعدات والمناطق</p>
-          </div>
-          <Sparkles size={32} className="text-blue-200" />
-        </Link>
-        <Link href="/food-safety-checklist" className="bg-emerald-600 hover:bg-emerald-700 text-white p-5 rounded-xl shadow-sm flex items-center justify-between transition-transform transform hover:-translate-y-1">
-          <div>
-            <h3 className="text-lg font-bold mb-1">اشتراطات سلامة الغذاء</h3>
-            <p className="text-emerald-100 text-sm">أضف تقرير التفتيش عن الممارسات الصحية الجيدة (GHP)</p>
-          </div>
-          <ClipboardCheck size={32} className="text-emerald-200" />
-        </Link>
       </div>
 
       {/* Charts Row */}
