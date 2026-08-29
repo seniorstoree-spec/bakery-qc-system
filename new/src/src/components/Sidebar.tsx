@@ -28,6 +28,7 @@ export default function Sidebar() {
     { name: "التقييم الحسي", href: "/sensory", icon: Eye },
     { name: "نموذج متابعة النظافة", href: "/cleaning-log", icon: Sparkles },
     { name: "اشتراطات سلامة الغذاء", href: "/food-safety-checklist", icon: ClipboardCheck },
+    { name: "التقارير الشاملة", href: "/reports", icon: ClipboardList },
     { name: "الإفراج عن المنتج النهائي", href: "/release", icon: CheckSquare },
   ];
 
