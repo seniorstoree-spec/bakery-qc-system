@@ -22,5 +22,5 @@
     }
   },
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
-  "exclude": ["node_modules", "bakery-qc-system-files"]
+  "exclude": ["node_modules", "bakery-qc-system-files", "src/App.tsx", "src/main.tsx"]
 }
