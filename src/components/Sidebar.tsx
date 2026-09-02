@@ -14,6 +14,15 @@ import {
 } from "lucide-react";
 import clsx from "clsx";
 
+export type NavTab =
+  | "dashboard"
+  | "ipc"
+  | "defects"
+  | "weights_temp"
+  | "ccp_oprp"
+  | "sensory_food_safety"
+  | "product_release";
+
 export default function Sidebar() {
   const pathname = usePathname();
 
