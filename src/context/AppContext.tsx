@@ -158,15 +158,15 @@ interface AppContextType {
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
-const LOCAL_STORAGE_KEY = 'bakery_qc_state_v3';
-const DEV_AUTH_KEY = 'bakery_dev_auth_v3';
+const LOCAL_STORAGE_KEY = 'lab_qc_state_v1';
+const DEV_AUTH_KEY = 'lab_dev_auth_v1';
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [activeSection, setActiveSection] = useState<number>(1);
   const [isDarkMode, setIsDarkMode] = useState<boolean>(() => {
     return localStorage.getItem('bakery_theme') === 'dark';
   });
-  const [activeDate, setActiveDate] = useState<string>('2026-08-20');
+  const [activeDate, setActiveDate] = useState<string>(() => new Date().toISOString().slice(0, 10));
 
   // Developer Super Admin State (Password: Ee@1986)
   const [isDevUnlocked, setIsDevUnlocked] = useState<boolean>(() => {
