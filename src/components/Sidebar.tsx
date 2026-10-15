@@ -40,7 +40,7 @@ export default function Sidebar() {
     <aside className="w-64 bg-slate-900 text-white flex flex-col hidden md:flex shrink-0">
       <div className="h-16 flex items-center justify-center border-b border-slate-800">
         <h2 className="text-lg font-bold text-white tracking-wide">
-          الجودة - قسم المخابز
+          الجودة - المعمل
         </h2>
       </div>
       <nav className="flex-1 py-4 overflow-y-auto">
