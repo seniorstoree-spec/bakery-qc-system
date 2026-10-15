@@ -63,7 +63,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar }) => {
               <div className="hidden sm:block">
                 <div className="flex items-center gap-1.5">
                   <h1 className="font-extrabold text-xs md:text-sm text-slate-900 dark:text-white leading-tight">
-                    منظومة الجودة - قسم المخبوزات
+                    منظومة الجودة - المعمل
                   </h1>
                   <span className="bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 text-[10px] font-bold px-1.5 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-800 flex items-center gap-1">
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
@@ -71,7 +71,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar }) => {
                   </span>
                 </div>
                 <p className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">
-                  نظام الرقابة اللحظية ونقاط التحكم الحرجة (HACCP & IPC)
+                  نظام الفحوصات المعملية ومراقبة الجودة وسلامة الغذاء
                 </p>
               </div>
             </div>
