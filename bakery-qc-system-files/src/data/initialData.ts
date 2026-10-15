@@ -19,7 +19,7 @@ export const INITIAL_USERS: UserProfile[] = [
   { id: 'lab-user-engineer', name: 'مهندس المعمل', role: 'quality_engineer', department: 'المعمل', title: 'مهندس جودة المعمل', permissions: { canEnterData: true, canApproveRelease: false, canEditCriticalLimits: false, canManageUsers: false, canExportReports: true, canSignOff: true } },
   { id: 'lab-user-manager', name: 'رئيس المعمل', role: 'quality_manager', department: 'المعمل', title: 'رئيس المعمل', permissions: { canEnterData: true, canApproveRelease: true, canEditCriticalLimits: true, canManageUsers: true, canExportReports: true, canSignOff: true } },
   { id: 'lab-user-supervisor', name: 'مشرف المعمل', role: 'production_supervisor', department: 'المعمل', title: 'مشرف المعمل', permissions: { canEnterData: false, canApproveRelease: false, canEditCriticalLimits: false, canManageUsers: false, canExportReports: true, canSignOff: true } },
-  { id: 'lab-user-admin', name: 'مدير النظام', role: 'system_admin', department: 'المعمل', title: 'مدير نظام المعمل', permissions: { canEnterData: true, canApproveRelease: true, canEditCriticalLimits: true, canManageUsers: true, canExportReports: true, canSignOff: true, isDeveloperSuperAdmin: true } }
+  { id: 'lab-user-admin', name: 'مدير النظام', role: 'system_admin', department: 'المعمل', title: 'مدير نظام المعمل', permissions: { canEnterData: true, canApproveRelease: true, canEditCriticalLimits: true, canManageUsers: true, canExportReports: true, canSignOff: true } }
 ]
 
 export const BAKERY_1_RECIPES: RawMaterialRecipe[] = []
@@ -53,22 +53,7 @@ export const SANITATION_EQUIPMENT_NAMES_B1 = [
   { name: 'أسطح العمل', code: 'LAB-08' }
 ]
 
-export const SANITATION_EQUIPMENT_NAMES_B2 = [
-  { name: 'العجانات', code: 'EQ2-01' },
-  { name: 'الفرادات', code: 'EQ2-02' },
-  { name: 'ماكينات التكوير', code: 'EQ2-03' },
-  { name: 'ماكينات التقطيع', code: 'EQ2-04' },
-  { name: 'ماكينات الحقن', code: 'EQ2-05' },
-  { name: 'المضارب', code: 'EQ2-06' },
-  { name: 'القلايات', code: 'EQ2-07' },
-  { name: 'السخانات', code: 'EQ2-08' },
-  { name: 'الإستاندات', code: 'EQ2-09' },
-  { name: 'أدوات المناولة', code: 'EQ2-10' },
-  { name: 'الترابيزات', code: 'EQ2-11' },
-  { name: 'المخمرات', code: 'EQ2-12' },
-  { name: 'الأفران', code: 'EQ2-13' },
-  { name: 'الآيس ميكر', code: 'EQ2-14' },
-];
+export const SANITATION_EQUIPMENT_NAMES_B2 = SANITATION_EQUIPMENT_NAMES_B1
 
 export const INITIAL_SANITATION_LOG_B1: DailySanitationLog = {
   id: 'lab-sanitation-template',
