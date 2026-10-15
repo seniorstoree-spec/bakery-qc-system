@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { getCurrentSession, loadLabState, saveLabState } from '../supabaseClient';
 import { 
   UserProfile, 
   UserRole, 
@@ -119,7 +120,7 @@ interface AppContextType {
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
-const LOCAL_STORAGE_KEY = 'bakery_qc_state_v1';
+const LOCAL_STORAGE_KEY = 'lab_qc_state_v1';
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [activeSection, setActiveSection] = useState<1 | 2>(1);
@@ -127,7 +128,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [isDarkMode, setIsDarkMode] = useState<boolean>(() => {
     return localStorage.getItem('bakery_theme') === 'dark';
   });
-  const [activeDate, setActiveDate] = useState<string>('2026-08-20');
+  const [activeDate, setActiveDate] = useState<string>(() => new Date().toISOString().slice(0, 10));
 
   // Load from local storage or use initials
   const [operatingParams, setOperatingParams] = useState<OperatingParametersLog[]>(() => {
@@ -195,6 +196,40 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return saved ? JSON.parse(saved) : INITIAL_PRODUCT_WEIGHT_SPECS;
   });
 
+  const [cloudReady, setCloudReady] = useState(false);
+
+  // Load the shared laboratory records from the isolated Supabase project before syncing changes.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const session = await getCurrentSession();
+        if (!session) throw new Error('Supabase session is missing');
+        const data = await loadLabState(session);
+        if (cancelled) return;
+        if (data) {
+          if (Array.isArray(data.operatingParams)) setOperatingParams(data.operatingParams);
+          if (Array.isArray(data.defectLogs)) setDefectLogs(data.defectLogs);
+          if (Array.isArray(data.coreTemperatures)) setCoreTemperatures(data.coreTemperatures);
+          if (Array.isArray(data.metalDetectorLogs)) setMetalDetectorLogs(data.metalDetectorLogs);
+          if (Array.isArray(data.electricSieveLogs)) setElectricSieveLogs(data.electricSieveLogs);
+          if (Array.isArray(data.additiveWeights)) setAdditiveWeights(data.additiveWeights);
+          if (Array.isArray(data.sensoryEvaluations)) setSensoryEvaluations(data.sensoryEvaluations);
+          if (Array.isArray(data.nonConformanceLogs)) setNonConformanceLogs(data.nonConformanceLogs);
+          if (data.sanitationLogB1) setSanitationLogB1(data.sanitationLogB1);
+          if (data.foodSafetyLog) setFoodSafetyLog(data.foodSafetyLog);
+          if (data.releaseFormB1) setReleaseFormB1(data.releaseFormB1);
+          if (data.releaseFormB2) setReleaseFormB2(data.releaseFormB2);
+          if (Array.isArray(data.productWeightSpecs)) setProductWeightSpecs(data.productWeightSpecs);
+        }
+        setCloudReady(true);
+      } catch (error) {
+        console.error('تعذر تحميل بيانات المعمل من Supabase:', error);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
   // Save to localStorage on change
   useEffect(() => {
     localStorage.setItem(`${LOCAL_STORAGE_KEY}_op_params`, JSON.stringify(operatingParams));
@@ -247,6 +282,27 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   useEffect(() => {
     localStorage.setItem(`${LOCAL_STORAGE_KEY}_weight_specs`, JSON.stringify(productWeightSpecs));
   }, [productWeightSpecs]);
+
+  // Debounced cloud sync. The same dataset is shared by signed-in laboratory users.
+  useEffect(() => {
+    if (!cloudReady) return;
+    const timer = setTimeout(async () => {
+      try {
+        const session = await getCurrentSession();
+        if (!session) return;
+        await saveLabState(session, {
+          operatingParams, defectLogs, coreTemperatures, metalDetectorLogs,
+          electricSieveLogs, additiveWeights, sensoryEvaluations, nonConformanceLogs,
+          sanitationLogB1, foodSafetyLog, releaseFormB1, releaseFormB2, productWeightSpecs
+        });
+      } catch (error) {
+        console.error('تعذر حفظ بيانات المعمل في Supabase:', error);
+      }
+    }, 700);
+    return () => clearTimeout(timer);
+  }, [cloudReady, operatingParams, defectLogs, coreTemperatures, metalDetectorLogs,
+      electricSieveLogs, additiveWeights, sensoryEvaluations, nonConformanceLogs,
+      sanitationLogB1, foodSafetyLog, releaseFormB1, releaseFormB2, productWeightSpecs]);
 
   useEffect(() => {
     if (isDarkMode) {
