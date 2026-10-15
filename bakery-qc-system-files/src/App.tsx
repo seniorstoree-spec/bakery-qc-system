@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { AuthGate } from './components/AuthGate';
 import { AppProvider, useApp } from './context/AppContext';
 import { Navbar } from './components/Navbar';
 import { Sidebar, NavTab } from './components/Sidebar';
@@ -44,8 +45,10 @@ const MainLayout: React.FC = () => {
 
 export default function App() {
   return (
-    <AppProvider>
-      <MainLayout />
-    </AppProvider>
+    <AuthGate>
+      <AppProvider>
+        <MainLayout />
+      </AppProvider>
+    </AuthGate>
   );
 }
