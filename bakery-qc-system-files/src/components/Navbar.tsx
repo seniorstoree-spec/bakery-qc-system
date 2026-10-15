@@ -59,7 +59,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar }) => {
               <div className="hidden sm:block">
                 <div className="flex items-center gap-1.5">
                   <h1 className="font-extrabold text-sm md:text-base text-slate-900 dark:text-white leading-tight">
-                    منظومة الجودة وقسم المخبوزات
+                    منظومة الجودة - المعمل
                   </h1>
                   <span className="bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 text-[10px] font-bold px-1.5 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-800 flex items-center gap-1">
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
@@ -67,7 +67,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar }) => {
                   </span>
                 </div>
                 <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">
-                  نظام الرقابة اللحظية ونقاط التحكم الحرجة (HACCP & IPC)
+                  نظام الفحوصات المعملية ومراقبة الجودة وسلامة الغذاء
                 </p>
               </div>
             </div>
@@ -84,22 +84,10 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar }) => {
               }`}
             >
               <Layers className="w-3.5 h-3.5" />
-              <span>مخبوزات 1</span>
-              <span className="hidden md:inline text-[10px] opacity-80">(كرواسون/دانش)</span>
+              <span>المعمل</span>
             </button>
 
-            <button
-              onClick={() => setActiveSection(2)}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs md:text-sm font-bold transition-all ${
-                activeSection === 2
-                  ? 'bg-rose-600 text-white shadow-md shadow-rose-600/20'
-                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-              }`}
-            >
-              <Layers className="w-3.5 h-3.5" />
-              <span>مخبوزات 2</span>
-              <span className="hidden md:inline text-[10px] opacity-80">(دونتس/سينامون)</span>
-            </button>
+
           </div>
 
           {/* Left side: Date, Role Switcher, Mock Trigger, Export, Dark Mode */}
